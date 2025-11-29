@@ -70,6 +70,10 @@ export default function NavChart({ reports }: NavChartProps) {
           new Date(b.report_date!).getTime()
       );
 
+    if (sortedReports.length === 0) {
+      return { labels: [], grouped: {} };
+    }
+
     const grouped: { [key: string]: GroupedData } = {};
 
     sortedReports.forEach((report) => {
@@ -99,18 +103,106 @@ export default function NavChart({ reports }: NavChartProps) {
       // Use the latest value for each group
       if (!grouped[key] || date > grouped[key].date) {
         grouped[key] = {
-          totalNav: report.total_nav,
-          stockPrice: report.stock_price,
-          realEstatePrice: report.real_estate_price,
-          cash: report.cash,
-          cryptoPrice: report.crypto_price,
-          debt: report.debt,
+          totalNav: report.total_nav ?? 0,
+          stockPrice: report.stock_price ?? 0,
+          realEstatePrice: report.real_estate_price ?? 0,
+          cash: report.cash ?? 0,
+          cryptoPrice: report.crypto_price ?? 0,
+          debt: report.debt ?? 0,
           date,
         };
       }
     });
 
-    const labels = Object.keys(grouped).sort();
+    // Generate all possible labels from min to max date
+    const firstDate = new Date(sortedReports[0].report_date!);
+    const lastDate = new Date(sortedReports[sortedReports.length - 1].report_date!);
+
+    // Normalize first date to start of period
+    const startDate = new Date(firstDate);
+    switch (timeRange) {
+      case 'month':
+        startDate.setDate(1);
+        break;
+      case 'quarter':
+        startDate.setMonth(Math.floor(startDate.getMonth() / 3) * 3, 1);
+        break;
+      case 'year':
+        startDate.setMonth(0, 1);
+        break;
+    }
+
+    const allLabels: string[] = [];
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= lastDate) {
+      let key: string;
+
+      switch (timeRange) {
+        case 'month': {
+          key = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+          // Move to next month
+          currentDate.setMonth(currentDate.getMonth() + 1);
+          break;
+        }
+        case 'quarter': {
+          const quarter = Math.floor(currentDate.getMonth() / 3) + 1;
+          key = `${currentDate.getFullYear()}-Q${quarter}`;
+          // Move to next quarter
+          currentDate.setMonth(currentDate.getMonth() + 3);
+          break;
+        }
+        case 'year': {
+          key = String(currentDate.getFullYear());
+          // Move to next year
+          currentDate.setFullYear(currentDate.getFullYear() + 1);
+          break;
+        }
+        default: {
+          key = String(currentDate.getFullYear());
+          currentDate.setFullYear(currentDate.getFullYear() + 1);
+        }
+      }
+
+      if (!allLabels.includes(key)) {
+        allLabels.push(key);
+      }
+
+      // Fill with 0 if no data exists for this period
+      if (!grouped[key]) {
+        grouped[key] = {
+          totalNav: 0,
+          stockPrice: 0,
+          realEstatePrice: 0,
+          cash: 0,
+          cryptoPrice: 0,
+          debt: 0,
+          date: new Date(currentDate),
+        };
+      }
+    }
+
+    // Sort labels properly
+    const labels = allLabels.sort((a, b) => {
+      // For year format: just compare numbers
+      if (timeRange === 'year') {
+        return parseInt(a) - parseInt(b);
+      }
+      // For month format: "YYYY-MM"
+      if (timeRange === 'month') {
+        return a.localeCompare(b);
+      }
+      // For quarter format: "YYYY-Q1"
+      if (timeRange === 'quarter') {
+        const [yearA, quarterA] = a.split('-Q');
+        const [yearB, quarterB] = b.split('-Q');
+        if (yearA !== yearB) {
+          return parseInt(yearA) - parseInt(yearB);
+        }
+        return parseInt(quarterA) - parseInt(quarterB);
+      }
+      return a.localeCompare(b);
+    });
 
     return { labels, grouped };
   }, [reports, timeRange]);
@@ -166,7 +258,7 @@ export default function NavChart({ reports }: NavChartProps) {
 
   const createDataset = (
     label: string,
-    data: (number | null)[],
+    data: number[],
     color: typeof colors.totalNav,
     fill = false
   ) => ({
@@ -177,14 +269,15 @@ export default function NavChart({ reports }: NavChartProps) {
     borderWidth: 2.5,
     fill,
     tension: 0.4,
-    pointRadius: 4,
-    pointHoverRadius: 6,
+    pointRadius: 3,
+    pointHoverRadius: 5,
     pointBackgroundColor: color.point,
     pointBorderColor: '#fff',
     pointBorderWidth: 2,
     pointHoverBackgroundColor: color.hover,
     pointHoverBorderColor: '#fff',
     pointHoverBorderWidth: 3,
+    spanGaps: false,
   });
 
   const data = {
@@ -192,33 +285,33 @@ export default function NavChart({ reports }: NavChartProps) {
     datasets: [
       createDataset(
         'Total NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.totalNav ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.totalNav ?? 0),
         colors.totalNav,
         true
       ),
       createDataset(
         'Stock NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.stockPrice ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.stockPrice ?? 0),
         colors.stock
       ),
       createDataset(
         'Real Estate NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.realEstatePrice ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.realEstatePrice ?? 0),
         colors.realEstate
       ),
       createDataset(
         'Cash',
-        chartData.labels.map((label) => chartData.grouped[label]?.cash ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.cash ?? 0),
         colors.cash
       ),
       createDataset(
         'Crypto',
-        chartData.labels.map((label) => chartData.grouped[label]?.cryptoPrice ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.cryptoPrice ?? 0),
         colors.crypto
       ),
       createDataset(
         'Debt',
-        chartData.labels.map((label) => chartData.grouped[label]?.debt ?? null),
+        chartData.labels.map((label) => chartData.grouped[label]?.debt ?? 0),
         colors.debt
       ),
     ],
@@ -256,7 +349,9 @@ export default function NavChart({ reports }: NavChartProps) {
           label: function (context: any) {
             const label = context.dataset.label || '';
             const value = context.parsed.y;
-            if (value === null || value === undefined) return `${label}: N/A`;
+            if (value === null || value === undefined || value === 0) {
+              return `${label}: ${formatCurrency(0)}`;
+            }
             return `${label}: ${formatCurrency(value)}`;
           },
         },
@@ -351,7 +446,7 @@ export default function NavChart({ reports }: NavChartProps) {
           </button>
         </div>
       </div>
-      <div className="h-[300px] sm:h-[400px] lg:h-[500px] w-full">
+      <div className="h-[250px] sm:h-[300px] w-full">
         {hasData ? (
           <Line data={data} options={options} />
         ) : (
