@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavChart from '@/components/NavChart';
 import AssetsEquityChart from '@/components/AssetsEquityChart';
+import CashflowChart from '@/components/CashflowChart';
 
 interface MonthlyReport {
   id: number;
@@ -112,6 +113,9 @@ export default function Home() {
 
           {/* Assets and Owner's Equity Chart */}
           <AssetsEquityChart reports={reports} />
+
+          {/* Cashflow Chart */}
+          <CashflowChart reports={reports} />
         </div>
       </div>
     </div>

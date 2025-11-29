@@ -282,9 +282,6 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Assets and Owner&apos;s Equity
           </h2>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Debt vs Total Assets comparison
-          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button

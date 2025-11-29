@@ -28,12 +28,8 @@ ChartJS.register(
 interface MonthlyReport {
   id: number;
   report_date: string | null;
-  total_nav: number | null;
-  stock_price: number | null;
-  real_estate_price: number | null;
-  cash: number | null;
-  crypto_price: number | null;
-  debt: number | null;
+  income: number | null;
+  outcome: number | null;
 }
 
 type TimeRange = 'month' | 'quarter' | 'year';
@@ -43,16 +39,13 @@ interface NavChartProps {
 }
 
 interface GroupedData {
-  totalNav: number | null;
-  stockPrice: number | null;
-  realEstatePrice: number | null;
-  cash: number | null;
-  cryptoPrice: number | null;
-  debt: number | null;
+  income: number | null;
+  outcome: number | null;
+  revenue: number | null;
   date: Date;
 }
 
-export default function NavChart({ reports }: NavChartProps) {
+export default function CashflowChart({ reports }: NavChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('year');
 
   // Filter and group data based on time range
@@ -103,12 +96,10 @@ export default function NavChart({ reports }: NavChartProps) {
       // Use the latest value for each group
       if (!grouped[key] || date > grouped[key].date) {
         grouped[key] = {
-          totalNav: report.total_nav ?? 0,
-          stockPrice: report.stock_price ?? 0,
-          realEstatePrice: report.real_estate_price ?? 0,
-          cash: report.cash ?? 0,
-          cryptoPrice: report.crypto_price ?? 0,
-          debt: report.debt ?? 0,
+          income: report.income ?? 0,
+          outcome: report.outcome ?? 0,
+          revenue:
+            (report.income ?? 0) - (report.outcome ?? 0),
           date,
         };
       }
@@ -171,13 +162,10 @@ export default function NavChart({ reports }: NavChartProps) {
       // Fill with 0 if no data exists for this period
       if (!grouped[key]) {
         grouped[key] = {
-          totalNav: 0,
-          stockPrice: 0,
-          realEstatePrice: 0,
-          cash: 0,
-          cryptoPrice: 0,
-          debt: 0,
-          date: new Date(currentDate),
+          income: 0,
+          outcome: 0,
+          revenue: 0,
+          date: new Date(currentDate)
         };
       }
     }
@@ -218,48 +206,30 @@ export default function NavChart({ reports }: NavChartProps) {
 
   // Color palette for different lines
   const colors = {
-    totalNav: {
+    income: {
       border: 'rgb(59, 130, 246)',
       background: 'rgba(59, 130, 246, 0.1)',
       point: 'rgb(59, 130, 246)',
       hover: 'rgb(37, 99, 235)',
     },
-    stock: {
+    revenue: {
       border: 'rgb(34, 197, 94)',
       background: 'rgba(34, 197, 94, 0.1)',
       point: 'rgb(34, 197, 94)',
       hover: 'rgb(22, 163, 74)',
     },
-    realEstate: {
-      border: 'rgb(249, 115, 22)',
-      background: 'rgba(249, 115, 22, 0.1)',
-      point: 'rgb(249, 115, 22)',
-      hover: 'rgb(234, 88, 12)',
-    },
-    cash: {
-      border: 'rgb(107, 114, 128)',
-      background: 'rgba(107, 114, 128, 0.1)',
-      point: 'rgb(107, 114, 128)',
-      hover: 'rgb(75, 85, 99)',
-    },
-    crypto: {
-      border: 'rgb(168, 85, 247)',
-      background: 'rgba(168, 85, 247, 0.1)',
-      point: 'rgb(168, 85, 247)',
-      hover: 'rgb(147, 51, 234)',
-    },
-    debt: {
-      border: 'rgb(239, 68, 68)',
-      background: 'rgba(239, 68, 68, 0.1)',
-      point: 'rgb(239, 68, 68)',
-      hover: 'rgb(220, 38, 38)',
-    },
+    outcome: {
+      border: 'rgba(239, 68, 68, 0.8)',
+      background: 'rgba(239, 68, 68, 0.8)',
+      point: 'rgba(239, 68, 68, 0.8)',
+      hover: 'rgba(239, 68, 68, 0.8)',
+    }
   };
 
   const createDataset = (
     label: string,
     data: number[],
-    color: typeof colors.totalNav,
+    color: typeof colors.income,
     fill = false
   ) => ({
     label,
@@ -284,36 +254,21 @@ export default function NavChart({ reports }: NavChartProps) {
     labels: chartData.labels,
     datasets: [
       createDataset(
-        'Total NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.totalNav ?? 0),
-        colors.totalNav,
+        'Income',
+        chartData.labels.map((label) => chartData.grouped[label]?.income ?? 0),
+        colors.income,
         true
       ),
       createDataset(
-        'Stock NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.stockPrice ?? 0),
-        colors.stock
+        'Outcome',
+        chartData.labels.map((label) => chartData.grouped[label]?.outcome ?? 0),
+        colors.outcome
       ),
       createDataset(
-        'Real Estate NAV',
-        chartData.labels.map((label) => chartData.grouped[label]?.realEstatePrice ?? 0),
-        colors.realEstate
-      ),
-      createDataset(
-        'Cash',
-        chartData.labels.map((label) => chartData.grouped[label]?.cash ?? 0),
-        colors.cash
-      ),
-      createDataset(
-        'Crypto',
-        chartData.labels.map((label) => chartData.grouped[label]?.cryptoPrice ?? 0),
-        colors.crypto
-      ),
-      createDataset(
-        'Debt',
-        chartData.labels.map((label) => chartData.grouped[label]?.debt ?? 0),
-        colors.debt
-      ),
+        'Revenue',
+        chartData.labels.map((label) => (chartData.grouped[label]?.income ?? 0) - (chartData.grouped[label]?.outcome ?? 0)),
+        colors.revenue
+      )
     ],
   };
 
@@ -407,7 +362,7 @@ export default function NavChart({ reports }: NavChartProps) {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            NAV Breakdown
+            Cashflow Transaction
           </h2>
         </div>
         <div className="flex gap-2 flex-wrap">
