@@ -6,16 +6,20 @@ import {
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Bar } from 'react-chartjs-2';
+import { Chart } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend
@@ -38,6 +42,7 @@ interface GroupedData {
   assets: number;
   debt: number;
   date: Date;
+  growthRate?: number | null; // % tăng trưởng so với năm trước
 }
 
 export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
@@ -165,6 +170,34 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       return a.localeCompare(b);
     });
 
+    // Calculate growth rate (%) for each year compared to previous year
+    if (timeRange === 'year') {
+      labels.forEach((label, index) => {
+        if (index === 0) {
+          // First year has no previous year
+          grouped[label].growthRate = null;
+          return;
+        }
+
+        const currentYear = parseInt(label);
+        const previousYear = currentYear - 1;
+        const previousYearKey = String(previousYear);
+
+        const currentAssets = grouped[label]?.assets ?? 0;
+        const previousAssets = grouped[previousYearKey]?.assets ?? 0;
+
+        if (previousAssets === 0 || !grouped[previousYearKey]) {
+          // No previous year data or previous assets is 0
+          grouped[label].growthRate = null;
+          return;
+        }
+
+        // Calculate growth rate: ((current - previous) / previous) * 100
+        const growthRate = ((currentAssets - previousAssets) / previousAssets) * 100;
+        grouped[label].growthRate = growthRate;
+      });
+    }
+
     return { labels, grouped };
   }, [reports, timeRange]);
 
@@ -177,24 +210,62 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
     }).format(value);
   };
 
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  };
+
+  // Prepare datasets
+  const datasets: any[] = [
+    {
+      type: 'bar' as const,
+      label: 'Debt',
+      data: chartData.labels.map((label) => chartData.grouped[label]?.debt ?? 0),
+      backgroundColor: 'rgba(239, 68, 68, 0.8)',
+      borderColor: 'rgb(239, 68, 68)',
+      borderWidth: 1,
+      yAxisID: 'y',
+    },
+    {
+      type: 'bar' as const,
+      label: 'Assets',
+      data: chartData.labels.map((label) => chartData.grouped[label]?.assets ?? 0),
+      backgroundColor: 'rgba(34, 197, 94, 0.8)',
+      borderColor: 'rgb(34, 197, 94)',
+      borderWidth: 1,
+      yAxisID: 'y',
+    },
+  ];
+
+  // Add growth rate line only for year view
+  if (timeRange === 'year') {
+    datasets.push({
+      type: 'line' as const,
+      label: 'Growth Rate (%)',
+      data: chartData.labels.map((label) => {
+        const growthRate = chartData.grouped[label]?.growthRate;
+        return growthRate !== null && growthRate !== undefined ? growthRate : null;
+      }),
+      borderColor: 'rgb(168, 85, 247)',
+      backgroundColor: 'rgba(168, 85, 247, 0.1)',
+      borderWidth: 3,
+      pointRadius: 5,
+      pointHoverRadius: 7,
+      pointBackgroundColor: 'rgb(168, 85, 247)',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      pointHoverBackgroundColor: 'rgb(147, 51, 234)',
+      pointHoverBorderColor: '#fff',
+      pointHoverBorderWidth: 3,
+      tension: 0.4,
+      fill: false,
+      spanGaps: true,
+      yAxisID: 'y1',
+    });
+  }
+
   const data = {
     labels: chartData.labels,
-    datasets: [
-      {
-        label: 'Debt',
-        data: chartData.labels.map((label) => chartData.grouped[label]?.debt ?? 0),
-        backgroundColor: 'rgba(239, 68, 68, 0.8)',
-        borderColor: 'rgb(239, 68, 68)',
-        borderWidth: 1,
-      },
-      {
-        label: 'Assets',
-        data: chartData.labels.map((label) => chartData.grouped[label]?.assets ?? 0),
-        backgroundColor: 'rgba(34, 197, 94, 0.8)',
-        borderColor: 'rgb(34, 197, 94)',
-        borderWidth: 1,
-      },
-    ],
+    datasets,
   };
 
   const options = {
@@ -229,6 +300,15 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           label: function (context: any) {
             const label = context.dataset.label || '';
             const value = context.parsed.y;
+
+            // Check if this is the growth rate dataset
+            if (label === 'Growth Rate (%)') {
+              if (value === null || value === undefined) {
+                return `${label}: N/A`;
+              }
+              return `${label}: ${formatPercentage(value)}`;
+            }
+
             return `${label}: ${formatCurrency(value)}`;
           },
         },
@@ -240,6 +320,8 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
     },
     scales: {
       y: {
+        type: 'linear' as const,
+        position: 'left' as const,
         beginAtZero: true,
         grid: {
           color: 'rgba(0, 0, 0, 0.05)',
@@ -255,6 +337,23 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           },
         },
       },
+      y1: timeRange === 'year' ? {
+        type: 'linear' as const,
+        position: 'right' as const,
+        grid: {
+          drawOnChartArea: false,
+        },
+        ticks: {
+          callback: function (value: any) {
+            return formatPercentage(value);
+          },
+          color: 'rgb(168, 85, 247)',
+          font: {
+            size: 11,
+            weight: 600,
+          },
+        },
+      } : undefined,
       x: {
         grid: {
           display: false,
@@ -308,7 +407,7 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       </div>
       <div className="h-[250px] sm:h-[300px] w-full">
         {hasData ? (
-          <Bar data={data} options={options} />
+          <Chart type="bar" data={data} options={options} />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
             No data available for the selected time range
