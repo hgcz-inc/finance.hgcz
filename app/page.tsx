@@ -7,6 +7,7 @@ import AssetsEquityChart from '@/components/AssetsEquityChart';
 import CashflowChart from '@/components/CashflowChart';
 import StockDividendChart from '@/components/StockDividendChart';
 import StockDividendByCodeChart from '@/components/StockDividendByCodeChart';
+import ExpenseByCategoryChart from '@/components/ExpenseByCategoryChart';
 
 interface MonthlyReport {
   id: number;
@@ -131,6 +132,9 @@ export default function Home() {
               <StockDividendByCodeChart />
             </div>
           </div>
+
+          {/* Expense by Category Chart */}
+          <ExpenseByCategoryChart />
         </div>
       </div>
     </div>
