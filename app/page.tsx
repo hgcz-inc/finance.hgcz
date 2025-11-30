@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import NavChart from '@/components/NavChart';
 import AssetsEquityChart from '@/components/AssetsEquityChart';
 import CashflowChart from '@/components/CashflowChart';
+import StockDividendChart from '@/components/StockDividendChart';
 
 interface MonthlyReport {
   id: number;
@@ -116,6 +117,9 @@ export default function Home() {
 
           {/* Cashflow Chart */}
           <CashflowChart reports={reports} />
+
+          {/* Stock Dividend Chart */}
+          <StockDividendChart />
         </div>
       </div>
     </div>
