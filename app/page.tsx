@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import NavChart from '@/components/NavChart';
 import AssetsEquityChart from '@/components/AssetsEquityChart';
+import CashflowChart from '@/components/CashflowChart';
+import StockDividendChart from '@/components/StockDividendChart';
+import StockDividendByCodeChart from '@/components/StockDividendByCodeChart';
 
 interface MonthlyReport {
   id: number;
@@ -112,6 +115,22 @@ export default function Home() {
 
           {/* Assets and Owner's Equity Chart */}
           <AssetsEquityChart reports={reports} />
+
+          {/* Cashflow Chart */}
+          <CashflowChart reports={reports} />
+
+          {/* Stock Dividend Charts Row */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            {/* Stock Cash Dividends - col-md-8 on desktop, col-md-12 on mobile */}
+            <div className="md:col-span-8">
+              <StockDividendChart />
+            </div>
+
+            {/* Cash Dividend by Stock Code - col-md-4 on desktop, col-md-12 on mobile */}
+            <div className="md:col-span-4">
+              <StockDividendByCodeChart />
+            </div>
+          </div>
         </div>
       </div>
     </div>

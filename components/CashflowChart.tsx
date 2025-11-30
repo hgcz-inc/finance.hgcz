@@ -5,47 +5,47 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
   PointElement,
   LineElement,
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from 'chart.js';
-import { Chart } from 'react-chartjs-2';
+import { Line } from 'react-chartjs-2';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  BarElement,
   PointElement,
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 interface MonthlyReport {
   id: number;
   report_date: string | null;
-  total_nav: number | null;
-  debt: number | null;
+  income: number | null;
+  outcome: number | null;
 }
 
-type TimeRange = 'quarter' | 'year';
+type TimeRange = 'month' | 'quarter' | 'year';
 
-interface AssetsEquityChartProps {
+interface NavChartProps {
   reports: MonthlyReport[];
 }
 
 interface GroupedData {
-  assets: number;
-  debt: number;
+  income: number;
+  revenue: number;
+  outcome: number;
   date: Date;
-  growthRate?: number | null; // % tăng trưởng so với năm trước
 }
 
-export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
+export default function CashflowChart({ reports }: NavChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>('year');
 
   // Filter and group data based on time range
@@ -76,6 +76,12 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       let key: string;
 
       switch (timeRange) {
+        case 'month':
+          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+            2,
+            '0'
+          )}`;
+          break;
         case 'quarter':
           const quarter = Math.floor(date.getMonth() / 3) + 1;
           key = `${date.getFullYear()}-Q${quarter}`;
@@ -87,13 +93,26 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           key = String(date.getFullYear());
       }
 
-      // Use the latest value for each group
-      if (!grouped[key] || date > grouped[key].date) {
+      const income = report.income ?? 0;
+      const outcome = report.outcome ?? 0;
+
+      // Sum all income and outcome for each period
+      if (!grouped[key]) {
         grouped[key] = {
-          assets: report.total_nav ?? 0,
-          debt: report.debt ?? 0,
+          income: 0,
+          outcome: 0,
+          revenue: 0,
           date,
         };
+      }
+
+      // Sum income and outcome
+      grouped[key].income += income;
+      grouped[key].outcome += outcome;
+
+      // Update date to latest in period
+      if (date > grouped[key].date) {
+        grouped[key].date = date;
       }
     });
 
@@ -104,6 +123,9 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
     // Normalize first date to start of period
     const startDate = new Date(firstDate);
     switch (timeRange) {
+      case 'month':
+        startDate.setDate(1);
+        break;
       case 'quarter':
         startDate.setMonth(Math.floor(startDate.getMonth() / 3) * 3, 1);
         break;
@@ -119,6 +141,12 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       let key: string;
 
       switch (timeRange) {
+        case 'month': {
+          key = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+          // Move to next month
+          currentDate.setMonth(currentDate.getMonth() + 1);
+          break;
+        }
         case 'quarter': {
           const quarter = Math.floor(currentDate.getMonth() / 3) + 1;
           key = `${currentDate.getFullYear()}-Q${quarter}`;
@@ -145,9 +173,10 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       // Fill with 0 if no data exists for this period
       if (!grouped[key]) {
         grouped[key] = {
-          assets: 0,
-          debt: 0,
-          date: new Date(currentDate),
+          income: 0,
+          outcome: 0,
+          revenue: 0,
+          date: new Date(currentDate)
         };
       }
     }
@@ -157,6 +186,10 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       // For year format: just compare numbers
       if (timeRange === 'year') {
         return parseInt(a) - parseInt(b);
+      }
+      // For month format: "YYYY-MM"
+      if (timeRange === 'month') {
+        return a.localeCompare(b);
       }
       // For quarter format: "YYYY-Q1"
       if (timeRange === 'quarter') {
@@ -170,33 +203,10 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       return a.localeCompare(b);
     });
 
-    // Calculate growth rate (%) for each year compared to previous year
-    if (timeRange === 'year') {
-      labels.forEach((label, index) => {
-        if (index === 0) {
-          // First year has no previous year
-          grouped[label].growthRate = null;
-          return;
-        }
-
-        const currentYear = parseInt(label);
-        const previousYear = currentYear - 1;
-        const previousYearKey = String(previousYear);
-
-        const currentAssets = grouped[label]?.assets ?? 0;
-        const previousAssets = grouped[previousYearKey]?.assets ?? 0;
-
-        if (previousAssets === 0 || !grouped[previousYearKey]) {
-          // No previous year data or previous assets is 0
-          grouped[label].growthRate = null;
-          return;
-        }
-
-        // Calculate growth rate: ((current - previous) / previous) * 100
-        const growthRate = ((currentAssets - previousAssets) / previousAssets) * 100;
-        grouped[label].growthRate = growthRate;
-      });
-    }
+    // Calculate revenue = income - outcome for each period (after summing)
+    Object.keys(grouped).forEach((key) => {
+      grouped[key].revenue = grouped[key].income - grouped[key].outcome;
+    });
 
     return { labels, grouped };
   }, [reports, timeRange]);
@@ -210,62 +220,72 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
     }).format(value);
   };
 
-  const formatPercentage = (value: number) => {
-    return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+  // Color palette for different lines
+  const colors = {
+    income: {
+      border: 'rgb(59, 130, 246)',
+      background: 'rgba(59, 130, 246, 0.1)',
+      point: 'rgb(59, 130, 246)',
+      hover: 'rgb(37, 99, 235)',
+    },
+    revenue: {
+      border: 'rgb(34, 197, 94)',
+      background: 'rgba(34, 197, 94, 0.1)',
+      point: 'rgb(34, 197, 94)',
+      hover: 'rgb(22, 163, 74)',
+    },
+    outcome: {
+      border: 'rgba(239, 68, 68, 0.8)',
+      background: 'rgba(239, 68, 68, 0.8)',
+      point: 'rgba(239, 68, 68, 0.8)',
+      hover: 'rgba(239, 68, 68, 0.8)',
+    }
   };
 
-  // Prepare datasets
-  const datasets: any[] = [
-    {
-      type: 'bar' as const,
-      label: 'Debt',
-      data: chartData.labels.map((label) => chartData.grouped[label]?.debt ?? 0),
-      backgroundColor: 'rgba(239, 68, 68, 0.8)',
-      borderColor: 'rgb(239, 68, 68)',
-      borderWidth: 1,
-      yAxisID: 'y',
-    },
-    {
-      type: 'bar' as const,
-      label: 'Assets',
-      data: chartData.labels.map((label) => chartData.grouped[label]?.assets ?? 0),
-      backgroundColor: 'rgba(34, 197, 94, 0.8)',
-      borderColor: 'rgb(34, 197, 94)',
-      borderWidth: 1,
-      yAxisID: 'y',
-    },
-  ];
-
-  // Add growth rate line only for year view
-  if (timeRange === 'year') {
-    datasets.push({
-      type: 'line' as const,
-      label: 'Growth Rate (%)',
-      data: chartData.labels.map((label) => {
-        const growthRate = chartData.grouped[label]?.growthRate;
-        return growthRate !== null && growthRate !== undefined ? growthRate : null;
-      }),
-      borderColor: 'rgb(168, 85, 247)',
-      backgroundColor: 'rgba(168, 85, 247, 0.1)',
-      borderWidth: 3,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      pointBackgroundColor: 'rgb(168, 85, 247)',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      pointHoverBackgroundColor: 'rgb(147, 51, 234)',
-      pointHoverBorderColor: '#fff',
-      pointHoverBorderWidth: 3,
-      tension: 0.4,
-      fill: false,
-      spanGaps: true,
-      yAxisID: 'y1',
-    });
-  }
+  const createDataset = (
+    label: string,
+    data: number[],
+    color: typeof colors.income,
+    fill = false
+  ) => ({
+    label,
+    data,
+    borderColor: color.border,
+    backgroundColor: color.background,
+    borderWidth: 2.5,
+    fill,
+    tension: 0.4,
+    pointRadius: 3,
+    pointHoverRadius: 5,
+    pointBackgroundColor: color.point,
+    pointBorderColor: '#fff',
+    pointBorderWidth: 2,
+    pointHoverBackgroundColor: color.hover,
+    pointHoverBorderColor: '#fff',
+    pointHoverBorderWidth: 3,
+    spanGaps: false,
+  });
 
   const data = {
     labels: chartData.labels,
-    datasets,
+    datasets: [
+      createDataset(
+        'Income',
+        chartData.labels.map((label) => chartData.grouped[label]?.income ?? 0),
+        colors.income,
+        true
+      ),
+      createDataset(
+        'Revenue',
+        chartData.labels.map((label) => (chartData.grouped[label]?.income ?? 0) - (chartData.grouped[label]?.outcome ?? 0)),
+        colors.revenue
+      ),
+      createDataset(
+        'Outcome',
+        chartData.labels.map((label) => chartData.grouped[label]?.outcome ?? 0),
+        colors.outcome
+      )
+    ],
   };
 
   const options = {
@@ -300,15 +320,9 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           label: function (context: any) {
             const label = context.dataset.label || '';
             const value = context.parsed.y;
-
-            // Check if this is the growth rate dataset
-            if (label === 'Growth Rate (%)') {
-              if (value === null || value === undefined) {
-                return `${label}: N/A`;
-              }
-              return `${label}: ${formatPercentage(value)}`;
+            if (value === null || value === undefined || value === 0) {
+              return `${label}: ${formatCurrency(0)}`;
             }
-
             return `${label}: ${formatCurrency(value)}`;
           },
         },
@@ -320,9 +334,7 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
     },
     scales: {
       y: {
-        type: 'linear' as const,
-        position: 'left' as const,
-        beginAtZero: true,
+        beginAtZero: false,
         grid: {
           color: 'rgba(0, 0, 0, 0.05)',
           drawBorder: false,
@@ -337,23 +349,6 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           },
         },
       },
-      y1: timeRange === 'year' ? {
-        type: 'linear' as const,
-        position: 'right' as const,
-        grid: {
-          drawOnChartArea: false,
-        },
-        ticks: {
-          callback: function (value: any) {
-            return formatPercentage(value);
-          },
-          color: 'rgb(168, 85, 247)',
-          font: {
-            size: 11,
-            weight: 600,
-          },
-        },
-      } : undefined,
       x: {
         grid: {
           display: false,
@@ -365,6 +360,10 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
           },
         },
       },
+    },
+    interaction: {
+      intersect: false,
+      mode: 'index' as const,
     },
     animation: {
       duration: 1000,
@@ -379,10 +378,20 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-            Assets and Owner&apos;s Equity
+            Cashflow Transaction
           </h2>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setTimeRange('month')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              timeRange === 'month'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            Month
+          </button>
           <button
             onClick={() => setTimeRange('quarter')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -407,7 +416,7 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
       </div>
       <div className="h-[250px] sm:h-[300px] w-full">
         {hasData ? (
-          <Chart type="bar" data={data} options={options} />
+          <Line data={data} options={options} />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
             No data available for the selected time range
