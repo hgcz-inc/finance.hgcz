@@ -159,16 +159,7 @@ export default function StockDividendByCodeChart() {
           font: {
             size: 11,
           },
-        },
-        title: {
-          display: true,
-          text: 'Cash Dividend (triệu đ)',
-          color: '#6B7280',
-          font: {
-            size: 12,
-            weight: 500,
-          },
-        },
+        }
       },
       y: {
         grid: {
@@ -205,11 +196,8 @@ export default function StockDividendByCodeChart() {
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <div className="mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-          Cash Dividend by Stock Code (All Years)
+          Cash Dividend by Stock Code
         </h2>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Total cash dividends received by stock code across all years
-        </p>
       </div>
       <div className="h-[250px] sm:h-[350px] w-full">
         {hasData ? (

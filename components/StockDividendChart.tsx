@@ -246,9 +246,6 @@ export default function StockDividendChart() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             Stock Cash Dividends
           </h2>
-          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Total cash dividends received by period
-          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
