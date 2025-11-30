@@ -7,6 +7,9 @@ interface MonthlyReport {
   report_date: string | null;
   total_nav: number | null;
   debt: number | null;
+  stock_price: number | null;
+  real_estate_price: number | null;
+  crypto_price: number | null;
 }
 
 interface FinancialIndicatorsProps {
@@ -20,6 +23,8 @@ interface YearData {
   debtStart: number;
   debtEnd: number;
   roe: number | null;
+  roa: number | null;
+  roic: number | null;
 }
 
 export default function FinancialIndicators({ reports }: FinancialIndicatorsProps) {
@@ -71,7 +76,7 @@ export default function FinancialIndicators({ reports }: FinancialIndicatorsProp
       const totalNavEnd = lastReport.total_nav ?? 0;
       const debtStart = firstReport.debt ?? 0;
       const debtEnd = lastReport.debt ?? 0;
-      const totalInvestmentCapitalStart = (firstReport.stock_price + firstReport.real_estate_price + firstReport.crypto_price) ?? 0;
+      const totalInvestmentCapitalStart = (firstReport.stock_price ?? 0) + (firstReport.real_estate_price ?? 0) + (firstReport.crypto_price ?? 0);
 
       // Calculate debt phát sinh mới (new debt incurred during the year)
       const debtNewIncurred = Math.max(0, debtEnd - debtStart);
