@@ -39,9 +39,9 @@ interface NavChartProps {
 }
 
 interface GroupedData {
-  income: number | null;
-  outcome: number | null;
-  revenue: number | null;
+  income: number;
+  revenue: number;
+  outcome: number;
   date: Date;
 }
 
@@ -93,15 +93,26 @@ export default function CashflowChart({ reports }: NavChartProps) {
           key = String(date.getFullYear());
       }
 
-      // Use the latest value for each group
-      if (!grouped[key] || date > grouped[key].date) {
+      const income = report.income ?? 0;
+      const outcome = report.outcome ?? 0;
+
+      // Sum all income and outcome for each period
+      if (!grouped[key]) {
         grouped[key] = {
-          income: report.income ?? 0,
-          outcome: report.outcome ?? 0,
-          revenue:
-            (report.income ?? 0) - (report.outcome ?? 0),
+          income: 0,
+          outcome: 0,
+          revenue: 0,
           date,
         };
+      }
+
+      // Sum income and outcome
+      grouped[key].income += income;
+      grouped[key].outcome += outcome;
+
+      // Update date to latest in period
+      if (date > grouped[key].date) {
+        grouped[key].date = date;
       }
     });
 
@@ -192,6 +203,11 @@ export default function CashflowChart({ reports }: NavChartProps) {
       return a.localeCompare(b);
     });
 
+    // Calculate revenue = income - outcome for each period (after summing)
+    Object.keys(grouped).forEach((key) => {
+      grouped[key].revenue = grouped[key].income - grouped[key].outcome;
+    });
+
     return { labels, grouped };
   }, [reports, timeRange]);
 
@@ -260,14 +276,14 @@ export default function CashflowChart({ reports }: NavChartProps) {
         true
       ),
       createDataset(
-        'Outcome',
-        chartData.labels.map((label) => chartData.grouped[label]?.outcome ?? 0),
-        colors.outcome
-      ),
-      createDataset(
         'Revenue',
         chartData.labels.map((label) => (chartData.grouped[label]?.income ?? 0) - (chartData.grouped[label]?.outcome ?? 0)),
         colors.revenue
+      ),
+      createDataset(
+        'Outcome',
+        chartData.labels.map((label) => chartData.grouped[label]?.outcome ?? 0),
+        colors.outcome
       )
     ],
   };
