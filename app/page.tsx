@@ -119,6 +119,9 @@ export default function Home() {
           {/* Assets and Owner's Equity Chart */}
           <AssetsEquityChart reports={reports} />
 
+          {/* Financial Indicators */}
+          <FinancialIndicators reports={reports} />
+
           {/* Cashflow Chart */}
           <CashflowChart reports={reports} />
 
@@ -140,9 +143,6 @@ export default function Home() {
 
           {/* Income by Category Chart */}
           <IncomeByCategoryChart />
-
-          {/* Financial Indicators */}
-          <FinancialIndicators reports={reports} />
         </div>
       </div>
     </div>
