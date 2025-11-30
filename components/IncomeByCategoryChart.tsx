@@ -1,0 +1,289 @@
+'use client';
+
+import { useMemo, useState, useEffect } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+interface IncomeTransaction {
+  id: number;
+  amount: number | null;
+  categorizable_type: string;
+  kind: number;
+  note: string | null;
+  transaction_date: string | null;
+  category_name: string;
+  category_id: number;
+}
+
+// Income category icons mapping
+const categoryIcons: { [key: number]: string } = {
+  1: '💼', // Salary
+  2: '💰', // Interest Money
+  3: '📈', // Stock
+  4: '🏠', // Real Estate
+  5: '₿', // Cryptocurrency
+  6: '🎁', // Gifts
+  7: '🛒', // Selling
+  8: '💵', // Other Income
+  9: '💻', // Side Project
+};
+
+// Category name mapping
+const categoryNames: { [key: number]: string } = {
+  1: 'Salary',
+  2: 'Interest Money',
+  3: 'Stock',
+  4: 'Real Estate',
+  5: 'Cryptocurrency',
+  6: 'Gifts',
+  7: 'Selling',
+  8: 'Other Income',
+  9: 'Side Project',
+};
+
+export default function IncomeByCategoryChart() {
+  const [transactions, setTransactions] = useState<IncomeTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
+
+  // Fetch available years on mount
+  useEffect(() => {
+    fetch('/api/income-by-category')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.transactions.length > 0) {
+          const years = new Set<number>();
+          data.transactions.forEach((t: IncomeTransaction) => {
+            if (t.transaction_date) {
+              years.add(new Date(t.transaction_date).getFullYear());
+            }
+          });
+          const sortedYears = Array.from(years).sort((a, b) => b - a);
+          setAvailableYears(sortedYears);
+          if (sortedYears.length > 0 && !sortedYears.includes(selectedYear)) {
+            setSelectedYear(sortedYears[0]); // Set to most recent year
+          }
+        }
+      })
+      .catch((err) => console.error('Error fetching years:', err));
+  }, []);
+
+  useEffect(() => {
+    fetchIncomes(selectedYear);
+  }, [selectedYear]);
+
+  const fetchIncomes = async (year: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/income-by-category?year=${year}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setTransactions(data.transactions);
+      }
+    } catch (error) {
+      console.error('Error fetching incomes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Group and aggregate by category
+  const chartData = useMemo(() => {
+    if (!transactions || transactions.length === 0) {
+      return { categories: [], totals: {} };
+    }
+
+    const grouped: { [key: number]: { name: string; total: number; icon: string } } = {};
+
+    transactions.forEach((transaction) => {
+      if (transaction.amount === null || !transaction.category_id) {
+        return;
+      }
+
+      const categoryId = transaction.category_id;
+      const categoryName = categoryNames[categoryId] || transaction.category_name || 'Unknown';
+      const icon = categoryIcons[categoryId] || '💵';
+
+      if (!grouped[categoryId]) {
+        grouped[categoryId] = {
+          name: categoryName,
+          total: 0,
+          icon,
+        };
+      }
+
+      grouped[categoryId].total += Math.abs(transaction.amount); // Ensure positive
+    });
+
+    // Sort by total amount (descending) and get category IDs
+    const categoryIds = Object.keys(grouped)
+      .map(Number)
+      .sort((a, b) => grouped[b].total - grouped[a].total);
+
+    return { categories: categoryIds, totals: grouped };
+  }, [transactions]);
+
+  const formatCurrency = (value: number) => {
+    // Format in triệu đ (millions)
+    const millions = value / 1_000_000;
+    return `${millions.toFixed(1)} triệu đ`;
+  };
+
+  const data = {
+    labels: chartData.categories.map((id) => {
+      const category = chartData.totals[id];
+      return `${category.icon} ${category.name}`;
+    }),
+    datasets: [
+      {
+        label: 'Income',
+        data: chartData.categories.map((id) => chartData.totals[id]?.total ?? 0),
+        backgroundColor: 'rgba(34, 197, 94, 0.8)', // Green color for income
+        borderColor: 'rgb(34, 197, 94)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const options = {
+    indexAxis: 'y' as const, // Horizontal bar chart
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false, // Hide legend
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        padding: 12,
+        titleFont: {
+          size: 14,
+          weight: 'bold' as const,
+        },
+        bodyFont: {
+          size: 13,
+        },
+        callbacks: {
+          label: function (context: any) {
+            const value = context.parsed.x;
+            return `Total: ${formatCurrency(value)}`;
+          },
+        },
+        displayColors: false,
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)',
+          drawBorder: false,
+        },
+        ticks: {
+          callback: function (value: any) {
+            return formatCurrency(value);
+          },
+          color: '#6B7280',
+          font: {
+            size: 11,
+          },
+        },
+        title: {
+          display: true,
+          text: 'Income (triệu đ)',
+          color: '#6B7280',
+          font: {
+            size: 12,
+            weight: 500,
+          },
+        },
+      },
+      y: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: '#6B7280',
+          font: {
+            size: 12,
+            weight: 500,
+          },
+        },
+      },
+    },
+    animation: {
+      duration: 1000,
+      easing: 'easeInOutQuart' as const,
+    },
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="h-[250px] sm:h-[400px] flex items-center justify-center">
+          <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const hasData = chartData.categories.length > 0;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+            Income by Category
+          </h2>
+        </div>
+        <div className="flex gap-2 items-center">
+          <label className="text-sm text-gray-600 dark:text-gray-400">Year:</label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          >
+            {availableYears.length > 0 ? (
+              availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))
+            ) : (
+              <option value={selectedYear}>{selectedYear}</option>
+            )}
+          </select>
+        </div>
+      </div>
+      <div className="h-[250px] sm:h-[400px] w-full">
+        {hasData ? (
+          <Bar data={data} options={options} />
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+            No income data available for {selectedYear}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
