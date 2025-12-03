@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import NavChart from '@/components/NavChart';
 import AssetsEquityChart from '@/components/AssetsEquityChart';
 import CashflowChart from '@/components/CashflowChart';
+import StockNavChart from '@/components/StockNavChart';
 import StockDividendChart from '@/components/StockDividendChart';
 import StockDividendByCodeChart from '@/components/StockDividendByCodeChart';
 import ExpenseByCategoryChart from '@/components/ExpenseByCategoryChart';
@@ -124,6 +125,9 @@ export default function Home() {
 
           {/* Cashflow Chart */}
           <CashflowChart reports={reports} />
+
+          {/* Stock NAV Chart */}
+          <StockNavChart reports={reports} />
 
           {/* Stock Dividend Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
