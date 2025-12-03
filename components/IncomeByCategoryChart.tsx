@@ -109,10 +109,11 @@ export default function IncomeByCategoryChart() {
   // Group and aggregate by category
   const chartData = useMemo(() => {
     if (!transactions || transactions.length === 0) {
-      return { categories: [], totals: {} };
+      return { categories: [], totals: {}, grandTotal: 0 };
     }
 
     const grouped: { [key: number]: { name: string; total: number; icon: string } } = {};
+    let grandTotal = 0;
 
     transactions.forEach((transaction) => {
       if (transaction.amount === null || !transaction.category_id) {
@@ -122,6 +123,7 @@ export default function IncomeByCategoryChart() {
       const categoryId = transaction.category_id;
       const categoryName = categoryNames[categoryId] || transaction.category_name || 'Unknown';
       const icon = categoryIcons[categoryId] || '💵';
+      const amount = Math.abs(transaction.amount);
 
       if (!grouped[categoryId]) {
         grouped[categoryId] = {
@@ -131,7 +133,8 @@ export default function IncomeByCategoryChart() {
         };
       }
 
-      grouped[categoryId].total += Math.abs(transaction.amount); // Ensure positive
+      grouped[categoryId].total += amount;
+      grandTotal += amount;
     });
 
     // Sort by total amount (descending) and get category IDs
@@ -139,7 +142,7 @@ export default function IncomeByCategoryChart() {
       .map(Number)
       .sort((a, b) => grouped[b].total - grouped[a].total);
 
-    return { categories: categoryIds, totals: grouped };
+    return { categories: categoryIds, totals: grouped, grandTotal };
   }, [transactions]);
 
   const formatCurrency = (value: number) => {
@@ -185,7 +188,13 @@ export default function IncomeByCategoryChart() {
         callbacks: {
           label: function (context: any) {
             const value = context.parsed.x;
-            return `Total: ${formatCurrency(value)}`;
+            const percentage = chartData.grandTotal > 0
+              ? ((value / chartData.grandTotal) * 100).toFixed(1)
+              : '0.0';
+            return [
+              `Amount: ${formatCurrency(value)}`,
+              `Percentage: ${percentage}%`
+            ];
           },
         },
         displayColors: false,
