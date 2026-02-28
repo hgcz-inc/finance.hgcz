@@ -39,6 +39,11 @@ interface TransactionRow {
   category_name: string | null;
 }
 
+interface CategoryOption {
+  id: number;
+  name: string;
+}
+
 const expenseCategoryNames: Record<number, string> = {
   1: 'Food & Beverage',
   2: 'Bills & Utilities',
@@ -87,6 +92,30 @@ export default function CashflowTransactionsPage() {
   const [inflowByCategory, setInflowByCategory] = useState<CategoryItem[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [incomeCategories, setIncomeCategories] = useState<CategoryOption[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<CategoryOption[]>([]);
+  const [modalOpen, setModalOpen] = useState<'inflow' | 'outflow' | null>(null);
+  const [formAmount, setFormAmount] = useState('');
+  const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
+  const [formDate, setFormDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
+  const [formNote, setFormNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cashflow-categories');
+      const data = await res.json();
+      if (data.success) {
+        setIncomeCategories(data.incomeCategories ?? []);
+        setExpenseCategories(data.expenseCategories ?? []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   const fetchData = useCallback(async (y: number, m: number) => {
     setLoading(true);
@@ -112,8 +141,76 @@ export default function CashflowTransactionsPage() {
       router.push('/login');
       return;
     }
+    fetchCategories();
     fetchData(year, month);
-  }, [router, year, month, fetchData]);
+  }, [router, year, month, fetchData, fetchCategories]);
+
+  const openInflowModal = () => {
+    setFormAmount('');
+    setFormCategoryId(incomeCategories[0]?.id ?? '');
+    setFormDate(new Date().toISOString().slice(0, 10));
+    setFormNote('');
+    setSuccessMessage(null);
+    setModalOpen('inflow');
+  };
+
+  const openOutflowModal = () => {
+    setFormAmount('');
+    setFormCategoryId(expenseCategories[0]?.id ?? '');
+    setFormDate(new Date().toISOString().slice(0, 10));
+    setFormNote('');
+    setSuccessMessage(null);
+    setModalOpen('outflow');
+  };
+
+  const closeModal = () => {
+    setModalOpen(null);
+    setSuccessMessage(null);
+  };
+
+  const handleSaveTransaction = async () => {
+    const amount = parseFloat(formAmount);
+    if (isNaN(amount) || amount <= 0) {
+      return;
+    }
+    const kind = modalOpen === 'inflow' ? 2 : 1;
+    const categorizable_type =
+      modalOpen === 'inflow' ? 'IncomeCategory' : 'ExpenseCategory';
+    const categorizable_id =
+      typeof formCategoryId === 'number' ? formCategoryId : null;
+    if (categorizable_id == null) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/cashflow-transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          kind,
+          categorizable_type,
+          categorizable_id,
+          transaction_date: formDate,
+          note: formNote || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccessMessage('Lưu thành công.');
+        setTimeout(() => {
+          closeModal();
+          fetchData(year, month);
+        }, 800);
+      } else {
+        setSuccessMessage(data.error || 'Có lỗi xảy ra.');
+      }
+    } catch (e) {
+      console.error(e);
+      setSuccessMessage('Có lỗi xảy ra.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const goPrevMonth = () => {
     if (month === 1) {
@@ -333,9 +430,29 @@ export default function CashflowTransactionsPage() {
 
         {/* Transactions table */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            Transactions
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Transactions
+            </h2>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={openOutflowModal}
+                className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-xl font-medium shadow"
+                aria-label="Tiền ra"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={openInflowModal}
+                className="w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center text-xl font-medium shadow"
+                aria-label="Tiền vào"
+              >
+                +
+              </button>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -397,6 +514,110 @@ export default function CashflowTransactionsPage() {
             </table>
           </div>
         </div>
+
+        {/* Modal: Inflow / Outflow */}
+        {modalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={(e) => e.target === e.currentTarget && closeModal()}
+          >
+            <div
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                {modalOpen === 'inflow' ? 'Tiền vào' : 'Tiền ra'}
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Amount
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formAmount}
+                    onChange={(e) => setFormAmount(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={formCategoryId}
+                    onChange={(e) =>
+                      setFormCategoryId(
+                        e.target.value === ''
+                          ? ''
+                          : parseInt(e.target.value, 10)
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">-- Chọn category --</option>
+                    {(modalOpen === 'inflow'
+                      ? incomeCategories
+                      : expenseCategories
+                    ).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Transaction Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Note
+                  </label>
+                  <input
+                    type="text"
+                    value={formNote}
+                    onChange={(e) => setFormNote(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    placeholder="Ghi chú"
+                  />
+                </div>
+              </div>
+              {successMessage && (
+                <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+                  {successMessage}
+                </p>
+              )}
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveTransaction}
+                  disabled={saving}
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+                >
+                  {saving ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

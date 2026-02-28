@@ -1,6 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      amount,
+      kind,
+      categorizable_type,
+      categorizable_id,
+      transaction_date,
+      note,
+    } = body;
+
+    if (
+      amount == null ||
+      kind == null ||
+      !categorizable_type ||
+      categorizable_id == null
+    ) {
+      return NextResponse.json(
+        { error: 'amount, kind, categorizable_type, categorizable_id are required' },
+        { status: 400 }
+      );
+    }
+    if (kind !== 1 && kind !== 2) {
+      return NextResponse.json(
+        { error: 'kind must be 1 (outflow) or 2 (inflow)' },
+        { status: 400 }
+      );
+    }
+    if (
+      categorizable_type !== 'ExpenseCategory' &&
+      categorizable_type !== 'IncomeCategory'
+    ) {
+      return NextResponse.json(
+        { error: 'categorizable_type must be ExpenseCategory or IncomeCategory' },
+        { status: 400 }
+      );
+    }
+
+    const dateStr =
+      transaction_date ||
+      new Date().toISOString().slice(0, 10);
+    const noteVal = note ?? null;
+
+    await query(
+      `INSERT INTO cashflow_transactions
+       (amount, kind, categorizable_type, categorizable_id, transaction_date, note, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
+      [
+        Number(amount),
+        kind,
+        categorizable_type,
+        Number(categorizable_id),
+        dateStr,
+        noteVal,
+      ]
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error creating cashflow transaction:', error);
+    return NextResponse.json(
+      { error: 'An error occurred while creating the transaction' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
