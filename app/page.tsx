@@ -104,12 +104,20 @@ export default function Home() {
               Welcome, {user?.login_id}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm sm:text-base self-start sm:self-auto"
-          >
-            Logout
-          </button>
+          <div className="flex gap-2 self-start sm:self-auto">
+            <a
+              href="/cashflow_transactions"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm sm:text-base"
+            >
+              Transactions
+            </a>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm sm:text-base"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* Dashboard Content */}
