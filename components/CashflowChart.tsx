@@ -377,9 +377,12 @@ export default function CashflowChart({ reports }: NavChartProps) {
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+          <a
+            href="/cashflow_transactions"
+            className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:underline"
+          >
             Cashflow Transaction
-          </h2>
+          </a>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
