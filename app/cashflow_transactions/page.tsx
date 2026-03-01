@@ -279,8 +279,8 @@ export default function CashflowTransactionsPage() {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx: { raw: number }) =>
-              formatVND(ctx.raw),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            label: (ctx: any) => formatVND(Number(ctx.raw ?? 0)),
           },
         },
       },
@@ -306,8 +306,8 @@ export default function CashflowTransactionsPage() {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (ctx: { raw: number }) =>
-              formatVND(ctx.raw),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            label: (ctx: any) => formatVND(Number(ctx.raw ?? 0)),
           },
         },
       },
