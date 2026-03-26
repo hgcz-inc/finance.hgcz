@@ -40,9 +40,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const dateStr =
-      transaction_date ||
-      new Date().toISOString().slice(0, 10);
+    if (
+      !transaction_date ||
+      typeof transaction_date !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(transaction_date)
+    ) {
+      return NextResponse.json(
+        { error: 'transaction_date must be in format YYYY-MM-DD' },
+        { status: 400 }
+      );
+    }
+
+    const dateStr = transaction_date;
     const noteVal = note ?? null;
 
     await query(
