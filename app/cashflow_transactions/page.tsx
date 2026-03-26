@@ -97,12 +97,19 @@ export default function CashflowTransactionsPage() {
   const [modalOpen, setModalOpen] = useState<'inflow' | 'outflow' | null>(null);
   const [formAmount, setFormAmount] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
-  const [formDate, setFormDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
-  );
+  const toLocalDateInputValue = (d: Date) => {
+    // Use local timezone to avoid `toISOString()` (UTC) shifting the date.
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const [formDate, setFormDate] = useState(() => toLocalDateInputValue(new Date()));
   const [formNote, setFormNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -147,40 +154,49 @@ export default function CashflowTransactionsPage() {
 
   const openInflowModal = () => {
     setFormAmount('');
-    setFormCategoryId(incomeCategories[0]?.id ?? '');
-    setFormDate(new Date().toISOString().slice(0, 10));
+    const defaultId = incomeCategories[0]?.id;
+    setFormCategoryId(defaultId != null ? Number(defaultId) : '');
+    setFormDate(toLocalDateInputValue(new Date()));
     setFormNote('');
     setSuccessMessage(null);
+    setErrorMessage(null);
     setModalOpen('inflow');
   };
 
   const openOutflowModal = () => {
     setFormAmount('');
-    setFormCategoryId(expenseCategories[0]?.id ?? '');
-    setFormDate(new Date().toISOString().slice(0, 10));
+    const defaultId = expenseCategories[0]?.id;
+    setFormCategoryId(defaultId != null ? Number(defaultId) : '');
+    setFormDate(toLocalDateInputValue(new Date()));
     setFormNote('');
     setSuccessMessage(null);
+    setErrorMessage(null);
     setModalOpen('outflow');
   };
 
   const closeModal = () => {
     setModalOpen(null);
     setSuccessMessage(null);
+    setErrorMessage(null);
   };
 
   const handleSaveTransaction = async () => {
-    const amount = parseFloat(formAmount);
-    if (isNaN(amount) || amount <= 0) {
+    const amount = Number(formAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setErrorMessage('Vui lòng nhập số tiền lớn hơn 0.');
       return;
     }
     const kind = modalOpen === 'inflow' ? 2 : 1;
     const categorizable_type =
       modalOpen === 'inflow' ? 'IncomeCategory' : 'ExpenseCategory';
-    const categorizable_id =
-      typeof formCategoryId === 'number' ? formCategoryId : null;
-    if (categorizable_id == null) return;
+    const categorizable_id = formCategoryId === '' ? null : Number(formCategoryId);
+    if (categorizable_id == null || !Number.isFinite(categorizable_id)) {
+      setErrorMessage('Vui lòng chọn category.');
+      return;
+    }
 
     setSaving(true);
+    setErrorMessage(null);
     try {
       const res = await fetch('/api/cashflow-transactions', {
         method: 'POST',
@@ -197,16 +213,19 @@ export default function CashflowTransactionsPage() {
       const data = await res.json();
       if (data.success) {
         setSuccessMessage('Lưu thành công.');
+        setErrorMessage(null);
         setTimeout(() => {
           closeModal();
           fetchData(year, month);
         }, 800);
       } else {
-        setSuccessMessage(data.error || 'Có lỗi xảy ra.');
+        setSuccessMessage(null);
+        setErrorMessage(data.error || 'Có lỗi xảy ra.');
       }
     } catch (e) {
       console.error(e);
-      setSuccessMessage('Có lỗi xảy ra.');
+      setSuccessMessage(null);
+      setErrorMessage('Có lỗi xảy ra.');
     } finally {
       setSaving(false);
     }
@@ -563,7 +582,7 @@ export default function CashflowTransactionsPage() {
                       ? incomeCategories
                       : expenseCategories
                     ).map((c) => (
-                      <option key={c.id} value={c.id}>
+                      <option key={c.id} value={Number(c.id)}>
                         {c.name}
                       </option>
                     ))}
@@ -596,6 +615,11 @@ export default function CashflowTransactionsPage() {
               {successMessage && (
                 <p className="mt-3 text-sm text-green-600 dark:text-green-400">
                   {successMessage}
+                </p>
+              )}
+              {errorMessage && (
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                  {errorMessage}
                 </p>
               )}
               <div className="mt-6 flex gap-3 justify-end">
