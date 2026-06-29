@@ -40,11 +40,16 @@ interface MonthlyReport {
   updated_at: string;
 }
 
+interface CurrentUser {
+  id?: number;
+  login_id?: string;
+}
+
 export default function Home() {
   const router = useRouter();
   const [reports, setReports] = useState<MonthlyReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
     // Check if user is logged in
@@ -110,6 +115,12 @@ export default function Home() {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm sm:text-base"
             >
               Transactions
+            </a>
+            <a
+              href="/stock_portfolios"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm sm:text-base"
+            >
+              Stock
             </a>
             <button
               onClick={handleLogout}
