@@ -40,11 +40,26 @@ interface MonthlyReport {
   updated_at: string;
 }
 
+interface CurrentUser {
+  id?: number;
+  login_id?: string;
+}
+
 export default function Home() {
   const router = useRouter();
   const [reports, setReports] = useState<MonthlyReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [monthlyReportModalOpen, setMonthlyReportModalOpen] = useState(false);
+  const [reportCash, setReportCash] = useState('');
+  const [reportDebt, setReportDebt] = useState('');
+  const [reportSaving, setReportSaving] = useState(false);
+  const [reportSuccessMessage, setReportSuccessMessage] = useState<
+    string | null
+  >(null);
+  const [reportErrorMessage, setReportErrorMessage] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     // Check if user is logged in
@@ -81,6 +96,72 @@ export default function Home() {
     router.push('/login');
   };
 
+  const currentMonthLabel = new Intl.DateTimeFormat('vi-VN', {
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date());
+
+  const openMonthlyReportModal = () => {
+    setReportCash('');
+    setReportDebt('');
+    setReportSuccessMessage(null);
+    setReportErrorMessage(null);
+    setMonthlyReportModalOpen(true);
+  };
+
+  const closeMonthlyReportModal = () => {
+    setMonthlyReportModalOpen(false);
+    setReportErrorMessage(null);
+    setReportSaving(false);
+  };
+
+  const handleCreateMonthlyReport = async () => {
+    const cash = Number(reportCash);
+    const debt = reportDebt.trim() === '' ? 0 : Number(reportDebt);
+
+    if (!Number.isFinite(cash) || cash < 0) {
+      setReportErrorMessage('Vui lòng nhập cash lớn hơn hoặc bằng 0.');
+      return;
+    }
+
+    if (!Number.isFinite(debt) || debt < 0) {
+      setReportErrorMessage('Vui lòng nhập debt lớn hơn hoặc bằng 0.');
+      return;
+    }
+
+    setReportSaving(true);
+    setReportErrorMessage(null);
+    try {
+      const response = await fetch('/api/monthly-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cash, debt }),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setReportSuccessMessage(
+          data.action === 'updated'
+            ? 'Đã cập nhật Monthly Report tháng này.'
+            : 'Đã tạo Monthly Report tháng này.'
+        );
+        setMonthlyReportModalOpen(false);
+        setReportCash('');
+        setReportDebt('');
+        await fetchMonthlyReports();
+      } else {
+        setReportErrorMessage(
+          data.error || 'Có lỗi xảy ra khi tạo Monthly Report.'
+        );
+      }
+    } catch (error) {
+      console.error('Error creating monthly report:', error);
+      setReportErrorMessage('Có lỗi xảy ra khi tạo Monthly Report.');
+    } finally {
+      setReportSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -111,6 +192,19 @@ export default function Home() {
             >
               Transactions
             </a>
+            <a
+              href="/stock_portfolios"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm sm:text-base"
+            >
+              Stock
+            </a>
+            <button
+              type="button"
+              onClick={openMonthlyReportModal}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm sm:text-base"
+            >
+              Monthly Report
+            </button>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm sm:text-base"
@@ -119,6 +213,12 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {reportSuccessMessage && (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300">
+            {reportSuccessMessage}
+          </div>
+        )}
 
         {/* Dashboard Content */}
         <div className="space-y-6">
@@ -156,6 +256,94 @@ export default function Home() {
           {/* Income by Category Chart */}
           <IncomeByCategoryChart />
         </div>
+
+        {monthlyReportModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={(event) =>
+              event.target === event.currentTarget && closeMonthlyReportModal()
+            }
+          >
+            <div
+              className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Monthly Report
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {currentMonthLabel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMonthlyReportModal}
+                  className="rounded-md px-2 py-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Cash
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={reportCash}
+                    onChange={(event) => setReportCash(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    placeholder="0"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Debt
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={reportDebt}
+                    onChange={(event) => setReportDebt(event.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+
+              {reportErrorMessage && (
+                <p className="mt-4 text-sm text-red-600 dark:text-red-400">
+                  {reportErrorMessage}
+                </p>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeMonthlyReportModal}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateMonthlyReport}
+                  disabled={reportSaving}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {reportSaving ? 'Đang lưu...' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
