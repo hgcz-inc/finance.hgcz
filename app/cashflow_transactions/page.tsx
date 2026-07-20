@@ -897,7 +897,7 @@ export default function CashflowTransactionsPage() {
                       className="border-b border-gray-100 dark:border-gray-700"
                     >
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
-                        {t.transaction_date ? t.transaction_date.slice(0, 10) : '-'}
+                        {t.transaction_date ?? '-'}
                       </td>
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
                         {t.category_name ?? '-'}

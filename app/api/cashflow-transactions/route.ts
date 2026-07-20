@@ -175,7 +175,8 @@ export async function GET(request: NextRequest) {
 
     // All transactions for the month with category name
     const transactionsResult = await query(
-      `SELECT ct.id, ct.amount, ct.kind, ct.note, ct.transaction_date,
+      `SELECT ct.id, ct.amount, ct.kind, ct.note,
+              TO_CHAR(ct.transaction_date, 'YYYY-MM-DD') AS transaction_date,
               COALESCE(ec.name, ic.name) AS category_name
        FROM cashflow_transactions ct
        LEFT JOIN expense_categories ec ON ct.categorizable_type = 'ExpenseCategory' AND ct.categorizable_id = ec.id
