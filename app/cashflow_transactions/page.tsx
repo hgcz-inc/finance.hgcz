@@ -58,8 +58,11 @@ interface CategoryOption {
 
 type CurrencyOption = 'VND' | 'NZD';
 type TransactionAccountOption = 'Individual' | 'Joint';
+type ImportAccountOption = 'joint' | 'individual';
 
 const DEFAULT_EXCHANGE_RATE = '15.000';
+const CSV_IMPORT_FORMAT =
+  'Type,Details,Particulars,Code,Reference,Amount,Date,ForeignCurrencyAmount,ConversionCharge,Categorizable';
 
 const expenseCategoryNames: Record<number, string> = {
   1: 'Food & Beverage',
@@ -185,6 +188,12 @@ function segmentedButtonClass(isActive: boolean): string {
     : `${base} bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600`;
 }
 
+function importAccountLabel(account: ImportAccountOption): string {
+  return account === 'joint'
+    ? 'Outcome | ANZ | Joint account | CSV'
+    : 'Outcome | ANZ | Individual account | CSV';
+}
+
 export default function CashflowTransactionsPage() {
   const router = useRouter();
   const [year, setYear] = useState(() => new Date().getFullYear());
@@ -199,6 +208,11 @@ export default function CashflowTransactionsPage() {
   const [incomeCategories, setIncomeCategories] = useState<CategoryOption[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<CategoryOption[]>([]);
   const [modalOpen, setModalOpen] = useState<'inflow' | 'outflow' | null>(null);
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] =
+    useState<ImportAccountOption | null>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDragging, setImportDragging] = useState(false);
   const [formAmount, setFormAmount] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
   const toLocalDateInputValue = (d: Date) => {
@@ -217,8 +231,15 @@ export default function CashflowTransactionsPage() {
   const [formTransactionAccount, setFormTransactionAccount] =
     useState<TransactionAccountOption>('Individual');
   const [saving, setSaving] = useState(false);
+  const [importSaving, setImportSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [importSuccessMessage, setImportSuccessMessage] = useState<
+    string | null
+  >(null);
+  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(
+    null
+  );
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -296,6 +317,86 @@ export default function CashflowTransactionsPage() {
     setModalOpen(null);
     setSuccessMessage(null);
     setErrorMessage(null);
+  };
+
+  const openImportModal = (account: ImportAccountOption) => {
+    setImportMenuOpen(false);
+    setImportModalOpen(account);
+    setImportFile(null);
+    setImportDragging(false);
+    setImportSuccessMessage(null);
+    setImportErrorMessage(null);
+  };
+
+  const closeImportModal = () => {
+    if (importSaving) {
+      return;
+    }
+
+    setImportModalOpen(null);
+    setImportFile(null);
+    setImportDragging(false);
+    setImportSuccessMessage(null);
+    setImportErrorMessage(null);
+  };
+
+  const handleImportFile = (file: File | null) => {
+    setImportSuccessMessage(null);
+
+    if (!file) {
+      setImportFile(null);
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setImportFile(null);
+      setImportErrorMessage('Chỉ cho phép upload file CSV.');
+      return;
+    }
+
+    setImportFile(file);
+    setImportErrorMessage(null);
+  };
+
+  const handleImportCsv = async () => {
+    if (!importModalOpen) {
+      return;
+    }
+
+    if (!importFile) {
+      setImportErrorMessage('Vui lòng chọn file CSV để import.');
+      return;
+    }
+
+    setImportSaving(true);
+    setImportSuccessMessage(null);
+    setImportErrorMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append('account', importModalOpen);
+      formData.append('file', importFile);
+
+      const res = await fetch('/api/cashflow-transactions/import', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setImportSuccessMessage(
+          `Đã import ${Number(data.insertedCount ?? 0)} transactions.`
+        );
+        setImportFile(null);
+        await fetchData(year, month);
+      } else {
+        setImportErrorMessage(data.error || 'Có lỗi xảy ra khi import CSV.');
+      }
+    } catch (e) {
+      console.error(e);
+      setImportErrorMessage('Có lỗi xảy ra khi import CSV.');
+    } finally {
+      setImportSaving(false);
+    }
   };
 
   const handleAmountChange = (value: string) => {
@@ -709,6 +810,40 @@ export default function CashflowTransactionsPage() {
               Transactions
             </h2>
             <div className="flex gap-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setImportMenuOpen((open) => !open)}
+                  className="h-10 rounded-lg bg-gray-700 px-3 text-sm font-medium text-white shadow hover:bg-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500"
+                  aria-expanded={importMenuOpen}
+                  aria-haspopup="menu"
+                >
+                  Import
+                </button>
+                {importMenuOpen && (
+                  <div
+                    className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                    role="menu"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => openImportModal('joint')}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                      role="menuitem"
+                    >
+                      Outcome | ANZ | Joint account | CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openImportModal('individual')}
+                      className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                      role="menuitem"
+                    >
+                      Outcome | ANZ | Individual account | CSV
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={openOutflowModal}
@@ -993,6 +1128,105 @@ export default function CashflowTransactionsPage() {
                   className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
                 >
                   {saving ? 'Đang lưu...' : 'Lưu'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: CSV Import */}
+        {importModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={(e) =>
+              e.target === e.currentTarget && closeImportModal()
+            }
+          >
+            <div
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Import CSV
+              </h3>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                {importAccountLabel(importModalOpen)}
+              </p>
+
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                Warning: đảm bảo CSV có format{' '}
+                <code className="font-mono break-all">{CSV_IMPORT_FORMAT}</code>
+              </div>
+
+              <label
+                className={
+                  importDragging
+                    ? 'mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-blue-500 bg-blue-50 px-4 py-8 text-center dark:bg-blue-900/20'
+                    : 'mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-4 py-8 text-center hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:hover:bg-blue-900/20'
+                }
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setImportDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  if (e.currentTarget === e.target) {
+                    setImportDragging(false);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setImportDragging(false);
+                  handleImportFile(e.dataTransfer.files.item(0));
+                }}
+              >
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) =>
+                    handleImportFile(e.target.files?.item(0) ?? null)
+                  }
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  Kéo thả file CSV vào đây
+                </span>
+                <span className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  hoặc click để chọn file
+                </span>
+                {importFile && (
+                  <span className="mt-3 rounded-md bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                    {importFile.name}
+                  </span>
+                )}
+              </label>
+
+              {importSuccessMessage && (
+                <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+                  {importSuccessMessage}
+                </p>
+              )}
+              {importErrorMessage && (
+                <p className="mt-3 whitespace-pre-wrap text-sm text-red-600 dark:text-red-400">
+                  {importErrorMessage}
+                </p>
+              )}
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeImportModal}
+                  disabled={importSaving}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleImportCsv}
+                  disabled={importSaving}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {importSaving ? 'Đang import...' : 'Import'}
                 </button>
               </div>
             </div>
