@@ -23,7 +23,7 @@ const EXPECTED_HEADERS = [
   'Categorizable',
 ];
 
-const EXCHANGE_RATE_NZD_TO_VND = 15000;
+const DEFAULT_EXCHANGE_RATE_NZD_TO_VND = 15000;
 
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -86,6 +86,21 @@ function validateHeader(headerRow: string[]): string | null {
   return `CSV header không đúng format. Format cần là: ${EXPECTED_HEADERS.join(',')}`;
 }
 
+function parseExchangeRate(value: FormDataEntryValue | null): number {
+  if (typeof value !== 'string') {
+    return DEFAULT_EXCHANGE_RATE_NZD_TO_VND;
+  }
+
+  const normalized = value.trim().replace(/\s/g, '');
+  const withoutGroupSeparators = normalized.replace(
+    /[.,](?=\d{3}(?:\D|$))/g,
+    ''
+  );
+  const parsed = Number(withoutGroupSeparators.replace(',', '.'));
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 function parseTransactionDate(value: string): string | null {
   const trimmedValue = value.trim();
   const slashMatch = trimmedValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -144,11 +159,19 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const accountValue = formData.get('account');
+    const exchangeRate = parseExchangeRate(formData.get('exchangeRate'));
     const fileValue = formData.get('file');
 
     if (accountValue !== 'joint' && accountValue !== 'individual') {
       return NextResponse.json(
         { error: 'account must be joint or individual' },
+        { status: 400 }
+      );
+    }
+
+    if (exchangeRate <= 0) {
+      return NextResponse.json(
+        { error: 'Exchange Rate phải lớn hơn 0.' },
         { status: 400 }
       );
     }
@@ -243,7 +266,7 @@ export async function POST(request: NextRequest) {
 
       const amountMultiplier = accountValue === 'joint' ? 0.5 : 1;
       importRows.push({
-        amount: Math.abs(amountNzd) * EXCHANGE_RATE_NZD_TO_VND * amountMultiplier,
+        amount: Math.abs(amountNzd) * exchangeRate * amountMultiplier,
         categorizableId,
         transactionDate,
         note: buildNote(accountValue, details, code, amountText),

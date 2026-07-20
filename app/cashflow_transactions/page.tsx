@@ -212,6 +212,8 @@ export default function CashflowTransactionsPage() {
   const [importModalOpen, setImportModalOpen] =
     useState<ImportAccountOption | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importExchangeRate, setImportExchangeRate] =
+    useState(DEFAULT_EXCHANGE_RATE);
   const [importDragging, setImportDragging] = useState(false);
   const [formAmount, setFormAmount] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<number | ''>('');
@@ -323,6 +325,7 @@ export default function CashflowTransactionsPage() {
     setImportMenuOpen(false);
     setImportModalOpen(account);
     setImportFile(null);
+    setImportExchangeRate(DEFAULT_EXCHANGE_RATE);
     setImportDragging(false);
     setImportSuccessMessage(null);
     setImportErrorMessage(null);
@@ -335,6 +338,7 @@ export default function CashflowTransactionsPage() {
 
     setImportModalOpen(null);
     setImportFile(null);
+    setImportExchangeRate(DEFAULT_EXCHANGE_RATE);
     setImportDragging(false);
     setImportSuccessMessage(null);
     setImportErrorMessage(null);
@@ -374,6 +378,7 @@ export default function CashflowTransactionsPage() {
     try {
       const formData = new FormData();
       formData.append('account', importModalOpen);
+      formData.append('exchangeRate', importExchangeRate);
       formData.append('file', importFile);
 
       const res = await fetch('/api/cashflow-transactions/import', {
@@ -1156,6 +1161,20 @@ export default function CashflowTransactionsPage() {
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
                 Warning: đảm bảo CSV có format{' '}
                 <code className="font-mono break-all">{CSV_IMPORT_FORMAT}</code>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Exchange Rate
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={importExchangeRate}
+                  onChange={(e) => setImportExchangeRate(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="15.000"
+                />
               </div>
 
               <label
