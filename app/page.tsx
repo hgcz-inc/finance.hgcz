@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NavChart from '@/components/NavChart';
 import AssetsEquityChart from '@/components/AssetsEquityChart';
@@ -186,18 +187,18 @@ export default function Home() {
             </p>
           </div>
           <div className="flex gap-2 self-start sm:self-auto">
-            <a
+            <Link
               href="/cashflow_transactions"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm sm:text-base"
             >
               Transactions
-            </a>
-            <a
+            </Link>
+            <Link
               href="/stock_portfolios"
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm sm:text-base"
             >
               Stock
-            </a>
+            </Link>
             <button
               type="button"
               onClick={openMonthlyReportModal}
@@ -205,6 +206,12 @@ export default function Home() {
             >
               Monthly Report
             </button>
+            <Link
+              href="/configuration"
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors text-sm sm:text-base dark:bg-gray-600 dark:hover:bg-gray-500"
+            >
+              Config
+            </Link>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm sm:text-base"
