@@ -25,6 +25,17 @@ interface Summary {
   netBalance: number;
 }
 
+interface SpendingLimitInfo {
+  maxSpendingLimitPerYearVnd: number;
+  monthlyLimitVnd: number;
+  yearToDateOutflow: number;
+  remainingYearSpending: number;
+  remainingMonthlySpending: number;
+  remainingMonths: number;
+  currentYear: number;
+  currentMonth: number;
+}
+
 interface CategoryItem {
   category_name: string;
   category_id: number;
@@ -179,6 +190,8 @@ export default function CashflowTransactionsPage() {
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [spendingLimit, setSpendingLimit] =
+    useState<SpendingLimitInfo | null>(null);
   const [outflowByCategory, setOutflowByCategory] = useState<CategoryItem[]>([]);
   const [inflowByCategory, setInflowByCategory] = useState<CategoryItem[]>([]);
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
@@ -227,6 +240,7 @@ export default function CashflowTransactionsPage() {
       const data = await res.json();
       if (data.success) {
         setSummary(data.summary);
+        setSpendingLimit(data.spendingLimit ?? null);
         setOutflowByCategory(data.outflowByCategory ?? []);
         setInflowByCategory(data.inflowByCategory ?? []);
         setTransactions(data.transactions ?? []);
@@ -438,6 +452,19 @@ export default function CashflowTransactionsPage() {
   };
 
   const monthLabel = `${year}/${month}`;
+  const monthlyLimitVnd = spendingLimit?.monthlyLimitVnd ?? 0;
+  const selectedMonthHasPassed =
+    spendingLimit != null &&
+    (year < spendingLimit.currentYear ||
+      (year === spendingLimit.currentYear && month < spendingLimit.currentMonth));
+  const monthlyOverspending =
+    summary != null ? summary.outflow - monthlyLimitVnd : 0;
+  const showMonthlyOverspending =
+    selectedMonthHasPassed && monthlyOverspending > 0;
+  const showRemainingSpending =
+    spendingLimit != null && !selectedMonthHasPassed;
+  const remainingSpendingIsNegative =
+    (spendingLimit?.remainingYearSpending ?? 0) < 0;
 
   const outflowChartData = useMemo(() => {
     const labels = outflowByCategory.map(
@@ -555,6 +582,46 @@ export default function CashflowTransactionsPage() {
             Dashboard
           </Link>
         </div>
+
+        {spendingLimit && (
+          <div className="mb-6 space-y-3">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              <span className="font-semibold">
+                Mức chi tiêu tối đa mỗi tháng:
+              </span>{' '}
+              {formatVND(monthlyLimitVnd)}
+              <span className="text-blue-600 dark:text-blue-400">
+                {' '}
+                ({formatVND(spendingLimit.maxSpendingLimitPerYearVnd)} / năm)
+              </span>
+            </div>
+
+            {showMonthlyOverspending && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
+                Tháng {monthLabel} bạn đã chi tiêu vượt quá{' '}
+                {formatVND(monthlyOverspending)}.
+              </div>
+            )}
+
+            {showRemainingSpending && (
+              <div
+                className={
+                  remainingSpendingIsNegative
+                    ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    : 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                }
+              >
+                Spending còn lại của năm:{' '}
+                <strong>{formatVND(spendingLimit.remainingYearSpending)}</strong>.
+                {' '}Mỗi tháng còn lại có thể chi tối đa:{' '}
+                <strong>
+                  {formatVND(spendingLimit.remainingMonthlySpending)}
+                </strong>{' '}
+                ({spendingLimit.remainingMonths} tháng còn lại).
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {/* Box 1: Summary */}

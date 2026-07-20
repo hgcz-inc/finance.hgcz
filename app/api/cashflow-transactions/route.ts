@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
+function toLocalDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -100,19 +107,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Summary: inflow (kind=2), outflow (kind=1)
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const currentDate = toLocalDateInputValue(today);
+
+    // Summary, yearly spending-to-date, and app config in one query.
     const summaryResult = await query(
       `SELECT
-        COALESCE(SUM(CASE WHEN kind = 2 THEN amount ELSE 0 END), 0)::float AS inflow,
-        COALESCE(SUM(CASE WHEN kind = 1 THEN amount ELSE 0 END), 0)::float AS outflow
+        COALESCE(SUM(CASE WHEN kind = 2 AND EXTRACT(MONTH FROM transaction_date) = $2 THEN amount ELSE 0 END), 0)::float AS inflow,
+        COALESCE(SUM(CASE WHEN kind = 1 AND EXTRACT(MONTH FROM transaction_date) = $2 THEN amount ELSE 0 END), 0)::float AS outflow,
+        COALESCE(SUM(CASE WHEN kind = 1 AND transaction_date <= $3::date THEN amount ELSE 0 END), 0)::float AS year_to_date_outflow,
+        COALESCE((
+          SELECT max_spending_limit_per_year_vnd
+          FROM application_configs
+          ORDER BY id
+          LIMIT 1
+        ), 0)::float AS max_spending_limit_per_year_vnd
        FROM cashflow_transactions
-       WHERE EXTRACT(YEAR FROM transaction_date) = $1
-         AND EXTRACT(MONTH FROM transaction_date) = $2`,
-      [yearNum, monthNum]
+       WHERE EXTRACT(YEAR FROM transaction_date) = $1`,
+      [yearNum, monthNum, currentDate]
     );
     const row = summaryResult.rows[0];
     const inflow = Number(row?.inflow ?? 0);
     const outflow = Number(row?.outflow ?? 0);
+    const yearToDateOutflow = Number(row?.year_to_date_outflow ?? 0);
+    const maxSpendingLimitPerYearVnd = Number(
+      row?.max_spending_limit_per_year_vnd ?? 0
+    );
+    const monthlyLimitVnd = maxSpendingLimitPerYearVnd / 12;
+    const remainingMonths =
+      yearNum > currentYear
+        ? 12
+        : yearNum === currentYear
+          ? 12 - currentMonth + 1
+          : 0;
+    const remainingYearSpending =
+      maxSpendingLimitPerYearVnd - yearToDateOutflow;
+    const remainingMonthlySpending =
+      remainingMonths > 0 ? remainingYearSpending / remainingMonths : 0;
 
     // Outflow by category
     const outflowResult = await query(
@@ -159,6 +192,16 @@ export async function GET(request: NextRequest) {
         inflow,
         outflow,
         netBalance: inflow - outflow,
+      },
+      spendingLimit: {
+        maxSpendingLimitPerYearVnd,
+        monthlyLimitVnd,
+        yearToDateOutflow,
+        remainingYearSpending,
+        remainingMonthlySpending,
+        remainingMonths,
+        currentYear,
+        currentMonth,
       },
       outflowByCategory: outflowResult.rows,
       inflowByCategory: inflowResult.rows,
