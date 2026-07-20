@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Chart as ChartJS,
@@ -44,6 +45,11 @@ interface CategoryOption {
   name: string;
 }
 
+type CurrencyOption = 'VND' | 'NZD';
+type TransactionAccountOption = 'Individual' | 'Joint';
+
+const DEFAULT_EXCHANGE_RATE = '15.000';
+
 const expenseCategoryNames: Record<number, string> = {
   1: 'Food & Beverage',
   2: 'Bills & Utilities',
@@ -83,6 +89,82 @@ function formatTriệu(value: number): string {
   return `${millions.toFixed(0)} triệu đ`;
 }
 
+function parsePositiveNumber(value: string): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function parseExchangeRate(value: string): number {
+  const normalized = value.trim().replace(/\s/g, '');
+  const withoutGroupSeparators = normalized.replace(
+    /[.,](?=\d{3}(?:\D|$))/g,
+    ''
+  );
+  const parsed = Number(withoutGroupSeparators.replace(',', '.'));
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function formatCalculatedAmount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function stripOutflowNoteHelpers(note: string): string {
+  return note
+    .replace(/^(Individual|Joint)\s*\|\s*/i, '')
+    .replace(/\s*(?:\|\s*)?[\d.,]+\s*NZD\s*$/i, '')
+    .trim();
+}
+
+function buildOutflowNote(
+  baseNote: string,
+  transactionAccount: TransactionAccountOption,
+  currency: CurrencyOption,
+  nzdAmount: string
+): string {
+  const base = stripOutflowNoteHelpers(baseNote);
+  const parsedNzdAmount = parsePositiveNumber(nzdAmount);
+  const nzdSuffix =
+    currency === 'NZD' && parsedNzdAmount > 0 ? `${nzdAmount.trim()} NZD` : '';
+
+  if (base && nzdSuffix) {
+    return `${transactionAccount} | ${base} | ${nzdSuffix}`;
+  }
+
+  if (base) {
+    return `${transactionAccount} | ${base}`;
+  }
+
+  if (nzdSuffix) {
+    return `${transactionAccount} | ${nzdSuffix}`;
+  }
+
+  return `${transactionAccount} | `;
+}
+
+function calculateNzdToVndAmount(
+  nzdAmount: string,
+  exchangeRate: string,
+  transactionAccount: TransactionAccountOption
+): string {
+  const parsedNzdAmount = parsePositiveNumber(nzdAmount);
+  const parsedExchangeRate = parseExchangeRate(exchangeRate);
+
+  if (parsedNzdAmount === 0 || parsedExchangeRate === 0) {
+    return '';
+  }
+
+  const convertedAmount = parsedNzdAmount * parsedExchangeRate;
+  const adjustedAmount =
+    transactionAccount === 'Joint' ? convertedAmount / 2 : convertedAmount;
+
+  return formatCalculatedAmount(adjustedAmount);
+}
+
 export default function CashflowTransactionsPage() {
   const router = useRouter();
   const [year, setYear] = useState(() => new Date().getFullYear());
@@ -107,6 +189,11 @@ export default function CashflowTransactionsPage() {
 
   const [formDate, setFormDate] = useState(() => toLocalDateInputValue(new Date()));
   const [formNote, setFormNote] = useState('');
+  const [formCurrency, setFormCurrency] = useState<CurrencyOption>('NZD');
+  const [formExchangeRate, setFormExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
+  const [formNzdAmount, setFormNzdAmount] = useState('');
+  const [formTransactionAccount, setFormTransactionAccount] =
+    useState<TransactionAccountOption>('Individual');
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -158,6 +245,10 @@ export default function CashflowTransactionsPage() {
     setFormCategoryId(defaultId != null ? Number(defaultId) : '');
     setFormDate(toLocalDateInputValue(new Date()));
     setFormNote('');
+    setFormCurrency('NZD');
+    setFormExchangeRate(DEFAULT_EXCHANGE_RATE);
+    setFormNzdAmount('');
+    setFormTransactionAccount('Individual');
     setSuccessMessage(null);
     setErrorMessage(null);
     setModalOpen('inflow');
@@ -168,7 +259,11 @@ export default function CashflowTransactionsPage() {
     const defaultId = expenseCategories[0]?.id;
     setFormCategoryId(defaultId != null ? Number(defaultId) : '');
     setFormDate(toLocalDateInputValue(new Date()));
-    setFormNote('');
+    setFormCurrency('NZD');
+    setFormExchangeRate(DEFAULT_EXCHANGE_RATE);
+    setFormNzdAmount('');
+    setFormTransactionAccount('Individual');
+    setFormNote(buildOutflowNote('', 'Individual', 'NZD', ''));
     setSuccessMessage(null);
     setErrorMessage(null);
     setModalOpen('outflow');
@@ -178,6 +273,90 @@ export default function CashflowTransactionsPage() {
     setModalOpen(null);
     setSuccessMessage(null);
     setErrorMessage(null);
+  };
+
+  const handleAmountChange = (value: string) => {
+    setFormAmount(value);
+  };
+
+  const handleNoteChange = (value: string) => {
+    if (modalOpen !== 'outflow') {
+      setFormNote(value);
+      return;
+    }
+
+    setFormNote(
+      buildOutflowNote(
+        value,
+        formTransactionAccount,
+        formCurrency,
+        formNzdAmount
+      )
+    );
+  };
+
+  const handleCurrencyChange = (value: CurrencyOption) => {
+    setFormCurrency(value);
+
+    if (value === 'NZD') {
+      setFormAmount(
+        calculateNzdToVndAmount(
+          formNzdAmount,
+          formExchangeRate,
+          formTransactionAccount
+        )
+      );
+    }
+
+    setFormNote((note) =>
+      buildOutflowNote(note, formTransactionAccount, value, formNzdAmount)
+    );
+  };
+
+  const handleExchangeRateChange = (value: string) => {
+    setFormExchangeRate(value);
+    setFormAmount(
+      calculateNzdToVndAmount(
+        formNzdAmount,
+        value,
+        formTransactionAccount
+      )
+    );
+  };
+
+  const handleNzdAmountChange = (value: string) => {
+    setFormNzdAmount(value);
+    setFormAmount(
+      calculateNzdToVndAmount(
+        value,
+        formExchangeRate,
+        formTransactionAccount
+      )
+    );
+    setFormNote((note) =>
+      buildOutflowNote(note, formTransactionAccount, formCurrency, value)
+    );
+  };
+
+  const handleTransactionAccountChange = (
+    value: TransactionAccountOption
+  ) => {
+    setFormTransactionAccount(value);
+
+    if (formCurrency === 'NZD') {
+      setFormAmount(
+        calculateNzdToVndAmount(formNzdAmount, formExchangeRate, value)
+      );
+    } else if (value === 'Joint') {
+      const amount = Number(formAmount);
+      if (Number.isFinite(amount) && amount > 0) {
+        setFormAmount(formatCalculatedAmount(amount / 2));
+      }
+    }
+
+    setFormNote((note) =>
+      buildOutflowNote(note, value, formCurrency, formNzdAmount)
+    );
   };
 
   const handleSaveTransaction = async () => {
@@ -360,12 +539,12 @@ export default function CashflowTransactionsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
             Transactions
           </h1>
-          <a
+          <Link
             href="/"
             className="text-blue-600 dark:text-blue-400 hover:underline"
           >
             Dashboard
-          </a>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -541,7 +720,7 @@ export default function CashflowTransactionsPage() {
             onClick={(e) => e.target === e.currentTarget && closeModal()}
           >
             <div
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6"
+              className="max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
@@ -557,7 +736,7 @@ export default function CashflowTransactionsPage() {
                     min="0"
                     step="0.01"
                     value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value)}
+                    onChange={(e) => handleAmountChange(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="0"
                   />
@@ -606,11 +785,82 @@ export default function CashflowTransactionsPage() {
                   <input
                     type="text"
                     value={formNote}
-                    onChange={(e) => setFormNote(e.target.value)}
+                    onChange={(e) => handleNoteChange(e.target.value)}
                     className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Ghi chú"
                   />
                 </div>
+                {modalOpen === 'outflow' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Currency
+                      </label>
+                      <select
+                        value={formCurrency}
+                        onChange={(e) =>
+                          handleCurrencyChange(e.target.value as CurrencyOption)
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="NZD">NZD</option>
+                        <option value="VND">VND</option>
+                      </select>
+                    </div>
+                    {formCurrency === 'NZD' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Exchange Rate
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={formExchangeRate}
+                            onChange={(e) =>
+                              handleExchangeRateChange(e.target.value)
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            placeholder="15.000"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Amount for NZD
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formNzdAmount}
+                            onChange={(e) =>
+                              handleNzdAmountChange(e.target.value)
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            placeholder="0"
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Transaction Account
+                      </label>
+                      <select
+                        value={formTransactionAccount}
+                        onChange={(e) =>
+                          handleTransactionAccountChange(
+                            e.target.value as TransactionAccountOption
+                          )
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="Individual">Individual</option>
+                        <option value="Joint">Joint</option>
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
               {successMessage && (
                 <p className="mt-3 text-sm text-green-600 dark:text-green-400">
