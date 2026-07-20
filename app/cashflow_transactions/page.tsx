@@ -165,6 +165,15 @@ function calculateNzdToVndAmount(
   return formatCalculatedAmount(adjustedAmount);
 }
 
+function segmentedButtonClass(isActive: boolean): string {
+  const base =
+    'flex-1 px-3 py-2 text-sm font-medium transition-colors border first:rounded-l-lg last:rounded-r-lg';
+
+  return isActive
+    ? `${base} bg-blue-600 border-blue-600 text-white`
+    : `${base} bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600`;
+}
+
 export default function CashflowTransactionsPage() {
   const router = useRouter();
   const [year, setYear] = useState(() => new Date().getFullYear());
@@ -796,16 +805,28 @@ export default function CashflowTransactionsPage() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Currency
                       </label>
-                      <select
-                        value={formCurrency}
-                        onChange={(e) =>
-                          handleCurrencyChange(e.target.value as CurrencyOption)
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      <div
+                        className="flex"
+                        role="group"
+                        aria-label="Currency"
                       >
-                        <option value="NZD">NZD</option>
-                        <option value="VND">VND</option>
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() => handleCurrencyChange('NZD')}
+                          className={segmentedButtonClass(formCurrency === 'NZD')}
+                          aria-pressed={formCurrency === 'NZD'}
+                        >
+                          NZD
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCurrencyChange('VND')}
+                          className={segmentedButtonClass(formCurrency === 'VND')}
+                          aria-pressed={formCurrency === 'VND'}
+                        >
+                          VND
+                        </button>
+                      </div>
                     </div>
                     {formCurrency === 'NZD' && (
                       <>
@@ -846,18 +867,36 @@ export default function CashflowTransactionsPage() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Transaction Account
                       </label>
-                      <select
-                        value={formTransactionAccount}
-                        onChange={(e) =>
-                          handleTransactionAccountChange(
-                            e.target.value as TransactionAccountOption
-                          )
-                        }
-                        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      <div
+                        className="flex"
+                        role="group"
+                        aria-label="Transaction Account"
                       >
-                        <option value="Individual">Individual</option>
-                        <option value="Joint">Joint</option>
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleTransactionAccountChange('Individual')
+                          }
+                          className={segmentedButtonClass(
+                            formTransactionAccount === 'Individual'
+                          )}
+                          aria-pressed={formTransactionAccount === 'Individual'}
+                        >
+                          Individual
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleTransactionAccountChange('Joint')
+                          }
+                          className={segmentedButtonClass(
+                            formTransactionAccount === 'Joint'
+                          )}
+                          aria-pressed={formTransactionAccount === 'Joint'}
+                        >
+                          Joint
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
