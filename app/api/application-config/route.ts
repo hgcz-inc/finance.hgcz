@@ -44,6 +44,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       config: {
+        currency: user.currency,
         maxSpendingLimitPerYearVnd: normalizeLimit(
           row?.max_spending_limit_per_year_vnd
         ),
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
       body.maxSpendingLimitPerYearVnd
     );
     const showMaxSpendingLimitPerYear = body.showMaxSpendingLimitPerYear;
+    const currency = body.currency;
 
     if (
       !Number.isFinite(maxSpendingLimitPerYearVnd) ||
@@ -88,9 +90,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (currency !== 'VND' && currency !== 'NZD') {
+      return NextResponse.json(
+        { error: 'currency must be VND or NZD' },
+        { status: 400 }
+      );
+    }
 
     const result = await query(
-      `WITH updated AS (
+      `WITH user_updated AS (
+        UPDATE users
+        SET currency = $4,
+            updated_at = NOW()
+        WHERE id = $2
+        RETURNING currency
+      ),
+      updated AS (
         UPDATE application_configs
         SET max_spending_limit_per_year_vnd = $1,
             show_max_spending_limit_per_year = $3,
@@ -115,19 +130,31 @@ export async function POST(request: NextRequest) {
         RETURNING max_spending_limit_per_year_vnd,
                   show_max_spending_limit_per_year
       )
-      SELECT max_spending_limit_per_year_vnd,
-             show_max_spending_limit_per_year FROM updated
-      UNION ALL
-      SELECT max_spending_limit_per_year_vnd,
-             show_max_spending_limit_per_year FROM inserted
-      LIMIT 1`,
-      [maxSpendingLimitPerYearVnd, user.id, showMaxSpendingLimitPerYear]
+      SELECT config.max_spending_limit_per_year_vnd,
+             config.show_max_spending_limit_per_year,
+             user_updated.currency
+      FROM (
+        SELECT max_spending_limit_per_year_vnd,
+               show_max_spending_limit_per_year FROM updated
+        UNION ALL
+        SELECT max_spending_limit_per_year_vnd,
+               show_max_spending_limit_per_year FROM inserted
+        LIMIT 1
+      ) config
+      CROSS JOIN user_updated`,
+      [
+        maxSpendingLimitPerYearVnd,
+        user.id,
+        showMaxSpendingLimitPerYear,
+        currency === 'NZD' ? 1 : 0,
+      ]
     );
     const row = result.rows[0];
 
     return NextResponse.json({
       success: true,
       config: {
+        currency: Number(row?.currency) === 1 ? 'NZD' : 'VND',
         maxSpendingLimitPerYearVnd: normalizeLimit(
           row?.max_spending_limit_per_year_vnd
         ),

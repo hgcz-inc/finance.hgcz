@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { Currency } from '@/lib/currency';
 
 export const SESSION_COOKIE_NAME = 'hfinance_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -9,6 +10,7 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 export interface AuthenticatedUser {
   id: number;
   loginId: string;
+  currency: Currency;
 }
 
 function sessionSecret(): string {
@@ -60,13 +62,17 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   if (!userId) return null;
 
   const result = await query(
-    'SELECT id, login_id FROM users WHERE id = $1 LIMIT 1',
+    'SELECT id, login_id, currency FROM users WHERE id = $1 LIMIT 1',
     [userId]
   );
   const user = result.rows[0];
   if (!user) return null;
 
-  return { id: Number(user.id), loginId: String(user.login_id) };
+  return {
+    id: Number(user.id),
+    loginId: String(user.login_id),
+    currency: Number(user.currency) === 1 ? 'NZD' : 'VND',
+  };
 }
 
 export function setSessionCookie(response: NextResponse, userId: number): void {

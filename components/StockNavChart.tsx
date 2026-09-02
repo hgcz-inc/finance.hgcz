@@ -13,6 +13,8 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -40,6 +42,7 @@ interface StockNavChartProps {
 }
 
 export default function StockNavChart({ reports }: StockNavChartProps) {
+  const { currency } = useCurrency();
   const [filterType, setFilterType] = useState<FilterType>('month');
 
   const formatDate = (dateString: string, type: FilterType) => {
@@ -55,9 +58,7 @@ export default function StockNavChart({ reports }: StockNavChartProps) {
   };
 
   const formatCurrency = (value: number) => {
-    // Format in triệu đ (millions)
-    const millions = value / 1_000_000;
-    return `${millions.toFixed(1)} triệu đ`;
+    return formatCompactMoney(value, currency);
   };
 
   // Filter and process data
@@ -264,7 +265,7 @@ export default function StockNavChart({ reports }: StockNavChartProps) {
         },
         title: {
           display: true,
-          text: 'Value (triệu đ)',
+          text: `Value (${currency})`,
           color: '#6B7280',
           font: {
             size: 12,

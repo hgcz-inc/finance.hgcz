@@ -12,6 +12,7 @@ import StockDividendByCodeChart from '@/components/StockDividendByCodeChart';
 import ExpenseByCategoryChart from '@/components/ExpenseByCategoryChart';
 import IncomeByCategoryChart from '@/components/IncomeByCategoryChart';
 import FinancialIndicators from '@/components/FinancialIndicators';
+import { useCurrency } from '@/components/CurrencyProvider';
 
 interface MonthlyReport {
   id: number;
@@ -48,6 +49,7 @@ interface CurrentUser {
 
 export default function Home() {
   const router = useRouter();
+  const { currency } = useCurrency();
   const [reports, setReports] = useState<MonthlyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -298,7 +300,7 @@ export default function Home() {
               <div className="space-y-4">
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Cash
+                    Cash ({currency})
                   </span>
                   <input
                     type="number"
@@ -312,7 +314,7 @@ export default function Home() {
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Debt
+                    Debt ({currency})
                   </span>
                   <input
                     type="number"
