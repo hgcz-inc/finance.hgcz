@@ -11,11 +11,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
+    const checkSession = async () => {
+      const response = await fetch('/api/session');
+      if (!response.ok) {
+        localStorage.removeItem('user');
+        return;
+      }
+
+      const data = await response.json();
+      localStorage.setItem('user', JSON.stringify(data.user));
       router.push('/');
-    }
+    };
+
+    checkSession();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +55,7 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(data.user));
 
       router.push('/');
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
       setLoading(false);
     }

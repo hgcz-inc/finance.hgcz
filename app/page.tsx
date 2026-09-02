@@ -92,7 +92,8 @@ export default function Home() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('user');
     router.push('/login');
   };

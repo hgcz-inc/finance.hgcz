@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
 
@@ -13,14 +17,16 @@ export async function GET(request: NextRequest) {
         ec.id as category_id
       FROM cashflow_transactions ct
       JOIN expense_categories ec ON ct.categorizable_id = ec.id
+        AND ec.user_id = ct.user_id
       WHERE ct.kind = 1
+        AND ct.user_id = $1
         AND ct.categorizable_type = 'ExpenseCategory'
     `;
 
-    const params: any[] = [];
+    const params: number[] = [user.id];
 
     if (year) {
-      queryText += ` AND EXTRACT(YEAR FROM ct.transaction_date) = $1`;
+      queryText += ` AND EXTRACT(YEAR FROM ct.transaction_date) = $2`;
       params.push(parseInt(year));
     }
 

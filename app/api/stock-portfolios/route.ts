@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth';
 
 interface StockPortfolioInput {
   stock_code?: unknown;
@@ -87,13 +88,14 @@ function normalizeInput(body: StockPortfolioInput) {
   };
 }
 
-async function fetchStockPortfolios() {
+async function fetchStockPortfolios(userId: number) {
   const portfoliosResult = await query(
     `WITH portfolio_totals AS (
        SELECT
          COALESCE(SUM(total_cost_price), 0)::float AS total_cost_price,
          COALESCE(SUM(total_price), 0)::float AS total_price
        FROM stock_portfolios
+       WHERE user_id = $1
      )
      SELECT
        sp.id,
@@ -126,7 +128,9 @@ async function fetchStockPortfolios() {
        END AS status
      FROM stock_portfolios sp
      CROSS JOIN portfolio_totals pt
-     ORDER BY sp.total_price DESC NULLS LAST, sp.stock_code ASC`
+     WHERE sp.user_id = $1
+     ORDER BY sp.total_price DESC NULLS LAST, sp.stock_code ASC`,
+    [userId]
   );
 
   const totalsResult = await query(
@@ -138,7 +142,9 @@ async function fetchStockPortfolios() {
          WHEN COALESCE(SUM(total_cost_price), 0) = 0 THEN 0
          ELSE ((COALESCE(SUM(total_price), 0) - COALESCE(SUM(total_cost_price), 0)) / SUM(total_cost_price) * 100)::float
        END AS gain_loss_ratio
-     FROM stock_portfolios`
+     FROM stock_portfolios
+     WHERE user_id = $1`,
+    [userId]
   );
 
   return {
@@ -149,7 +155,10 @@ async function fetchStockPortfolios() {
 
 export async function GET() {
   try {
-    const { portfolios, totals } = await fetchStockPortfolios();
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
+    const { portfolios, totals } = await fetchStockPortfolios(user.id);
 
     return NextResponse.json({
       success: true,
@@ -167,6 +176,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const parsed = normalizeInput(await request.json());
     if ('error' in parsed) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
@@ -183,8 +195,8 @@ export async function POST(request: NextRequest) {
 
     const result = await query(
       `INSERT INTO stock_portfolios
-       (stock_code, shares_number, cost_price_per_share, price_per_share, total_cost_price, total_price, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       (stock_code, shares_number, cost_price_per_share, price_per_share, total_cost_price, total_price, user_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
        RETURNING *`,
       [
         stockCode,
@@ -193,6 +205,7 @@ export async function POST(request: NextRequest) {
         pricePerShare,
         totalCostPrice,
         totalPrice,
+        user.id,
       ]
     );
 
@@ -211,6 +224,9 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const body = await request.json();
     const id = toFiniteNumber(body.id);
     if (id == null) {
@@ -241,6 +257,7 @@ export async function PUT(request: NextRequest) {
            total_price = $6,
            updated_at = NOW()
        WHERE id = $7
+         AND user_id = $8
        RETURNING *`,
       [
         stockCode,
@@ -250,6 +267,7 @@ export async function PUT(request: NextRequest) {
         totalCostPrice,
         totalPrice,
         id,
+        user.id,
       ]
     );
 
@@ -275,14 +293,18 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const id = toFiniteNumber(new URL(request.url).searchParams.get('id'));
     if (id == null) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const result = await query('DELETE FROM stock_portfolios WHERE id = $1', [
-      id,
-    ]);
+    const result = await query(
+      'DELETE FROM stock_portfolios WHERE id = $1 AND user_id = $2',
+      [id, user.id]
+    );
     if (result.rowCount === 0) {
       return NextResponse.json(
         { error: 'Stock portfolio not found' },

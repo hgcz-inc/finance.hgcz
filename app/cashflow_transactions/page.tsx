@@ -27,13 +27,9 @@ interface Summary {
 
 interface SpendingLimitInfo {
   maxSpendingLimitPerYearVnd: number;
-  monthlyLimitVnd: number;
+  showMaxSpendingLimitPerYear: boolean;
   yearToDateOutflow: number;
   remainingYearSpending: number;
-  remainingMonthlySpending: number;
-  remainingMonths: number;
-  currentYear: number;
-  currentMonth: number;
 }
 
 interface CategoryItem {
@@ -558,19 +554,12 @@ export default function CashflowTransactionsPage() {
   };
 
   const monthLabel = `${year}/${month}`;
-  const monthlyLimitVnd = spendingLimit?.monthlyLimitVnd ?? 0;
-  const selectedMonthHasPassed =
-    spendingLimit != null &&
-    (year < spendingLimit.currentYear ||
-      (year === spendingLimit.currentYear && month < spendingLimit.currentMonth));
-  const monthlyOverspending =
-    summary != null ? summary.outflow - monthlyLimitVnd : 0;
-  const showMonthlyOverspending =
-    selectedMonthHasPassed && monthlyOverspending > 0;
-  const showRemainingSpending =
-    spendingLimit != null && !selectedMonthHasPassed;
-  const remainingSpendingIsNegative =
-    (spendingLimit?.remainingYearSpending ?? 0) < 0;
+  const showSpendingLimit =
+    spendingLimit?.showMaxSpendingLimitPerYear === true;
+  const annualOverspending = Math.max(
+    -(spendingLimit?.remainingYearSpending ?? 0),
+    0
+  );
 
   const outflowChartData = useMemo(() => {
     const labels = outflowByCategory.map(
@@ -689,41 +678,24 @@ export default function CashflowTransactionsPage() {
           </Link>
         </div>
 
-        {spendingLimit && (
+        {spendingLimit && showSpendingLimit && (
           <div className="mb-6 space-y-3">
             <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               <span className="font-semibold">
-                Mức chi tiêu tối đa mỗi tháng:
+                Max Spending Limit per Year:
               </span>{' '}
-              {formatVND(monthlyLimitVnd)}
-              <span className="text-blue-600 dark:text-blue-400">
-                {' '}
-                ({formatVND(spendingLimit.maxSpendingLimitPerYearVnd)} / năm)
-              </span>
+              {formatVND(spendingLimit.maxSpendingLimitPerYearVnd)}
             </div>
 
-            {showMonthlyOverspending && (
+            {annualOverspending > 0 ? (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
-                Tháng {monthLabel} bạn đã chi tiêu vượt quá{' '}
-                {formatVND(monthlyOverspending)}.
+                Cảnh báo: Bạn đã chi tiêu vượt ngân sách năm{' '}
+                <strong>{formatVND(annualOverspending)}</strong>.
               </div>
-            )}
-
-            {showRemainingSpending && (
-              <div
-                className={
-                  remainingSpendingIsNegative
-                    ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300'
-                    : 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                }
-              >
+            ) : (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                 Spending còn lại của năm:{' '}
                 <strong>{formatVND(spendingLimit.remainingYearSpending)}</strong>.
-                {' '}Mỗi tháng còn lại có thể chi tối đa:{' '}
-                <strong>
-                  {formatVND(spendingLimit.remainingMonthlySpending)}
-                </strong>{' '}
-                ({spendingLimit.remainingMonths} tháng còn lại).
               </div>
             )}
           </div>

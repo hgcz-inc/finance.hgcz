@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth';
 
 type ImportAccount = 'joint' | 'individual';
 
@@ -157,6 +158,9 @@ function buildNote(
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const formData = await request.formData();
     const accountValue = formData.get('account');
     const exchangeRate = parseExchangeRate(formData.get('exchangeRate'));
@@ -205,7 +209,8 @@ export async function POST(request: NextRequest) {
     }
 
     const categoriesResult = await query(
-      'SELECT id, name FROM expense_categories'
+      'SELECT id, name FROM expense_categories WHERE user_id = $1',
+      [user.id]
     );
     const categoryByName = new Map<string, number>(
       categoriesResult.rows.map((category) => [
@@ -289,8 +294,8 @@ export async function POST(request: NextRequest) {
 
     const valuesSql = importRows
       .map((_, index) => {
-        const base = index * 4;
-        return `($${base + 1}, 1, 'ExpenseCategory', $${base + 2}, $${base + 3}, $${base + 4}, NOW(), NOW())`;
+        const base = index * 5;
+        return `($${base + 1}, 1, 'ExpenseCategory', $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, NOW(), NOW())`;
       })
       .join(', ');
     const values = importRows.flatMap((row) => [
@@ -298,11 +303,12 @@ export async function POST(request: NextRequest) {
       row.categorizableId,
       row.transactionDate,
       row.note,
+      user.id,
     ]);
 
     await query(
       `INSERT INTO cashflow_transactions
-       (amount, kind, categorizable_type, categorizable_id, transaction_date, note, created_at, updated_at)
+       (amount, kind, categorizable_type, categorizable_id, transaction_date, note, user_id, created_at, updated_at)
        VALUES ${valuesSql}`,
       values
     );
