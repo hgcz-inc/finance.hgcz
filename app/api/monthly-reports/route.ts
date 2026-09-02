@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { buildMonthlyReport } from '@/lib/buildMonthlyReport';
+import { getCurrentUser, unauthorizedResponse } from '@/lib/auth';
 
 function toFiniteNumber(value: unknown): number | null {
   const numberValue = Number(value);
@@ -35,12 +36,16 @@ function parseReportDate(value: unknown): Date {
 
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     // Get monthly_reports ordered by report_date descending
     const result = await query(
       `SELECT * FROM monthly_reports
+       WHERE user_id = $1
        ORDER BY report_date DESC NULLS LAST, created_at DESC
        LIMIT 100`,
-      []
+      [user.id]
     );
 
     return NextResponse.json({
@@ -58,6 +63,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedResponse();
+
     const body = await request.json();
     const cash = toFiniteNumber(body.cash);
     const debt = toFiniteNumber(body.debt ?? 0);
@@ -81,17 +89,22 @@ export async function POST(request: NextRequest) {
     const existingResult = await query(
       `SELECT id
        FROM monthly_reports
-       WHERE report_date >= $1
+       WHERE user_id = $3
+         AND report_date >= $1
          AND report_date <= $2
        ORDER BY report_date DESC, id DESC
        LIMIT 1`,
-      [startDate, endDate]
+      [startDate, endDate, user.id]
     );
     const existingReportId =
       existingResult.rows[0]?.id == null
         ? undefined
         : Number(existingResult.rows[0].id);
-    const calculation = await buildMonthlyReport(reportDate, existingReportId);
+    const calculation = await buildMonthlyReport(
+      user.id,
+      reportDate,
+      existingReportId
+    );
     const totalNav =
       cash +
       calculation.stock_price +
@@ -150,8 +163,9 @@ export async function POST(request: NextRequest) {
              debt = $22,
              updated_at = NOW()
          WHERE id = $23
+           AND user_id = $24
          RETURNING *`,
-        [...params, existingReportId]
+        [...params, existingReportId, user.id]
       );
 
       return NextResponse.json({
@@ -167,15 +181,15 @@ export async function POST(request: NextRequest) {
         stock_cost, stock_price, stock_symbols, income, outcome, real_estate_cost,
         real_estate_price, real_estate_monthly_rent, cash, total_nav,
         stock_stack_dividend, crypto_cost, crypto_gain_loss, crypto_price,
-        crypto_profit_rate, crypto_symbols, debt, created_at, updated_at)
+        crypto_profit_rate, crypto_symbols, debt, user_id, created_at, updated_at)
        VALUES
        ($1, $2, $3, $4, $5,
         $6, $7, $8, $9, $10, $11,
         $12, $13, $14, $15,
         $16, $17, $18, $19,
-        $20, $21, $22, NOW(), NOW())
+        $20, $21, $22, $23, NOW(), NOW())
        RETURNING *`,
-      params
+      [...params, user.id]
     );
 
     return NextResponse.json({

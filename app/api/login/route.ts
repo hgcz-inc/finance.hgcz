@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { setSessionCookie } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,14 +54,15 @@ export async function POST(request: NextRequest) {
       [user.id]
     );
 
-    // Return success response
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
         login_id: user.login_id,
       },
     });
+    setSessionCookie(response, Number(user.id));
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

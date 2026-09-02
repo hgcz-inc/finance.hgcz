@@ -69,11 +69,15 @@ async function fetchMarketPrice(stockCode: string): Promise<number | null> {
   return extractSimplizePrice(await response.text());
 }
 
-export async function updatePriceStockPortfolios(): Promise<UpdatePriceStockPortfoliosResult> {
+export async function updatePriceStockPortfolios(
+  userId: number
+): Promise<UpdatePriceStockPortfoliosResult> {
   const result = await query(
     `SELECT id, stock_code, shares_number
      FROM stock_portfolios
-     ORDER BY id ASC`
+     WHERE user_id = $1
+     ORDER BY id ASC`,
+    [userId]
   );
   const portfolios = result.rows as StockPortfolioForPriceUpdate[];
   const updated: UpdatedStockPortfolio[] = [];
@@ -100,11 +104,13 @@ export async function updatePriceStockPortfolios(): Promise<UpdatePriceStockPort
          SET price_per_share = $1,
              total_price = $2,
              updated_at = NOW()
-         WHERE id = $3`,
+         WHERE id = $3
+           AND user_id = $4`,
         [
           pricePerShare,
           pricePerShare * Number(portfolio.shares_number ?? 0),
           portfolio.id,
+          userId,
         ]
       );
 

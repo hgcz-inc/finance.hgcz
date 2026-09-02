@@ -15,6 +15,7 @@ function formatVND(value: number): string {
 export default function ConfigurationPage() {
   const router = useRouter();
   const [maxSpendingLimit, setMaxSpendingLimit] = useState('0');
+  const [showMaxSpendingLimit, setShowMaxSpendingLimit] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -29,6 +30,9 @@ export default function ConfigurationPage() {
       if (data.success) {
         setMaxSpendingLimit(
           String(data.config?.maxSpendingLimitPerYearVnd ?? 0)
+        );
+        setShowMaxSpendingLimit(
+          data.config?.showMaxSpendingLimitPerYear === true
         );
       } else {
         setErrorMessage(data.error || 'Có lỗi xảy ra khi tải config.');
@@ -66,13 +70,19 @@ export default function ConfigurationPage() {
       const response = await fetch('/api/application-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ maxSpendingLimitPerYearVnd: value }),
+        body: JSON.stringify({
+          maxSpendingLimitPerYearVnd: value,
+          showMaxSpendingLimitPerYear: showMaxSpendingLimit,
+        }),
       });
       const data = await response.json();
 
       if (data.success) {
         const savedValue = data.config?.maxSpendingLimitPerYearVnd ?? value;
         setMaxSpendingLimit(String(savedValue));
+        setShowMaxSpendingLimit(
+          data.config?.showMaxSpendingLimitPerYear === true
+        );
         setSuccessMessage('Đã lưu config.');
       } else {
         setErrorMessage(data.error || 'Có lỗi xảy ra khi lưu config.');
@@ -120,6 +130,18 @@ export default function ConfigurationPage() {
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800">
+          <label className="mb-4 flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={showMaxSpendingLimit}
+              onChange={(event) => setShowMaxSpendingLimit(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Show Max Spending Limit per Year
+            </span>
+          </label>
+
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Max Spending Limit per Year (VND)
@@ -130,14 +152,17 @@ export default function ConfigurationPage() {
               step="1000"
               value={maxSpendingLimit}
               onChange={(event) => setMaxSpendingLimit(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              disabled={!showMaxSpendingLimit}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               placeholder="0"
             />
           </label>
 
-          <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-            Monthly limit preview: <strong>{formatVND(monthlyLimit)}</strong>
-          </div>
+          {showMaxSpendingLimit && (
+            <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              Monthly limit preview: <strong>{formatVND(monthlyLimit)}</strong>
+            </div>
+          )}
 
           {successMessage && (
             <p className="mt-3 text-sm text-green-600 dark:text-green-400">

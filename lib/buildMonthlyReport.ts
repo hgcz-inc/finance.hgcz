@@ -77,6 +77,7 @@ function calcCryptoProfitRate(
 }
 
 export async function buildMonthlyReport(
+  userId: number,
   reportDate = new Date(),
   excludeMonthlyReportId?: number
 ): Promise<MonthlyReportCalculation> {
@@ -98,50 +99,63 @@ export async function buildMonthlyReport(
          COALESCE(SUM(CASE WHEN kind = 2 THEN amount ELSE 0 END), 0)::float AS income,
          COALESCE(SUM(CASE WHEN kind = 1 THEN amount ELSE 0 END), 0)::float AS outcome
        FROM cashflow_transactions
-       WHERE transaction_date >= $1
+       WHERE user_id = $3
+         AND transaction_date >= $1
          AND transaction_date <= $2`,
-      [startDate, endDate]
+      [startDate, endDate, userId]
     ),
     query(
       `SELECT
          COALESCE(SUM(COALESCE(capital_cost, 0) * COALESCE(percentage_ownership, 100) / 100), 0)::float AS real_estate_cost,
          COALESCE(SUM(COALESCE(price, 0) * COALESCE(percentage_ownership, 100) / 100), 0)::float AS real_estate_price
        FROM real_estates
-       WHERE sold_at IS NULL`
+       WHERE sold_at IS NULL
+         AND user_id = $1`,
+      [userId]
     ),
     query(
       `SELECT
          COALESCE(SUM(total_cost_price), 0)::float AS stock_cost,
          COALESCE(SUM(total_price), 0)::float AS stock_price
-       FROM stock_portfolios`
+       FROM stock_portfolios
+       WHERE user_id = $1`,
+      [userId]
     ),
     query(
       `SELECT COALESCE(SUM(net_dividends_received), 0)::float AS stock_dividend
        FROM stock_dividend_histories
        WHERE dividend_type = 1
+         AND user_id = $3
          AND payment_date >= $1
          AND payment_date <= $2`,
-      [startDate, endDate]
+      [startDate, endDate, userId]
     ),
     query(
       `SELECT COALESCE(string_agg(stock_code, ',' ORDER BY id), '') AS stock_symbols
-       FROM stock_portfolios`
+       FROM stock_portfolios
+       WHERE user_id = $1`,
+      [userId]
     ),
     query(
       `SELECT COALESCE(SUM(stock_dividend), 0)::float AS stock_stack_dividend
        FROM monthly_reports
-       WHERE ($1::bigint IS NULL OR id <> $1)`,
-      [excludeMonthlyReportId ?? null]
+       WHERE user_id = $1
+         AND ($2::bigint IS NULL OR id <> $2)`,
+      [userId, excludeMonthlyReportId ?? null]
     ),
     query(
       `SELECT
          COALESCE(SUM(total_cost_price), 0)::float AS crypto_cost,
          COALESCE(SUM(total_price), 0)::float AS crypto_price
-       FROM crypto_portfolios`
+       FROM crypto_portfolios
+       WHERE user_id = $1`,
+      [userId]
     ),
     query(
       `SELECT COALESCE(string_agg(crypto_code, ',' ORDER BY id), '') AS crypto_symbols
-       FROM crypto_portfolios`
+       FROM crypto_portfolios
+       WHERE user_id = $1`,
+      [userId]
     ),
   ]);
 
