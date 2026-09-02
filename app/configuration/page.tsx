@@ -3,17 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
-function formatVND(value: number): string {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'decimal',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value) + ' ₫';
-}
+import { useCurrency } from '@/components/CurrencyProvider';
+import { Currency, formatMoney } from '@/lib/currency';
 
 export default function ConfigurationPage() {
   const router = useRouter();
+  const { currency, setCurrency } = useCurrency();
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>(currency);
   const [maxSpendingLimit, setMaxSpendingLimit] = useState('0');
   const [showMaxSpendingLimit, setShowMaxSpendingLimit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -28,6 +24,7 @@ export default function ConfigurationPage() {
       const data = await response.json();
 
       if (data.success) {
+        setSelectedCurrency(data.config?.currency === 'NZD' ? 'NZD' : 'VND');
         setMaxSpendingLimit(
           String(data.config?.maxSpendingLimitPerYearVnd ?? 0)
         );
@@ -73,6 +70,7 @@ export default function ConfigurationPage() {
         body: JSON.stringify({
           maxSpendingLimitPerYearVnd: value,
           showMaxSpendingLimitPerYear: showMaxSpendingLimit,
+          currency: selectedCurrency,
         }),
       });
       const data = await response.json();
@@ -83,6 +81,10 @@ export default function ConfigurationPage() {
         setShowMaxSpendingLimit(
           data.config?.showMaxSpendingLimitPerYear === true
         );
+        const savedCurrency: Currency =
+          data.config?.currency === 'NZD' ? 'NZD' : 'VND';
+        setSelectedCurrency(savedCurrency);
+        setCurrency(savedCurrency);
         setSuccessMessage('Đã lưu config.');
       } else {
         setErrorMessage(data.error || 'Có lỗi xảy ra khi lưu config.');
@@ -130,6 +132,26 @@ export default function ConfigurationPage() {
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800">
+          <label className="mb-6 block">
+            <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Currency
+            </span>
+            <select
+              value={selectedCurrency}
+              onChange={(event) =>
+                setSelectedCurrency(event.target.value as Currency)
+              }
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="VND">VND</option>
+              <option value="NZD">NZD</option>
+            </select>
+          </label>
+
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+            Spending limits
+          </h2>
+
           <label className="mb-4 flex cursor-pointer items-center gap-3">
             <input
               type="checkbox"
@@ -144,7 +166,7 @@ export default function ConfigurationPage() {
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Max Spending Limit per Year (VND)
+              Max Spending Limit per Year ({selectedCurrency})
             </span>
             <input
               type="number"
@@ -160,7 +182,8 @@ export default function ConfigurationPage() {
 
           {showMaxSpendingLimit && (
             <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              Monthly limit preview: <strong>{formatVND(monthlyLimit)}</strong>
+              Monthly limit preview:{' '}
+              <strong>{formatMoney(monthlyLimit, selectedCurrency)}</strong>
             </div>
           )}
 

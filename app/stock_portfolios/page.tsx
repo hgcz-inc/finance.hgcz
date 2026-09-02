@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatMoney } from '@/lib/currency';
 
 interface StockPortfolio {
   id: number;
@@ -60,16 +62,6 @@ function toNumber(value: number | null | undefined): number {
   return Number(value ?? 0);
 }
 
-function formatVND(value: number | null | undefined): string {
-  return (
-    new Intl.NumberFormat('vi-VN', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(toNumber(value)) + ' ₫'
-  );
-}
-
 function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat('vi-VN', {
     maximumFractionDigits: 2,
@@ -88,6 +80,7 @@ function getStatusTextClass(status: StockPortfolio['status'] | undefined) {
 
 export default function StockPortfoliosPage() {
   const router = useRouter();
+  const { currency } = useCurrency();
   const [portfolios, setPortfolios] = useState<StockPortfolio[]>([]);
   const [totals, setTotals] = useState<StockPortfolioTotals | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,17 +130,17 @@ export default function StockPortfoliosPage() {
     () => [
       {
         label: 'Cost',
-        value: formatVND(totals?.total_cost_price),
+        value: formatMoney(totals?.total_cost_price, currency),
         className: 'text-gray-900 dark:text-white',
       },
       {
         label: 'Value',
-        value: formatVND(totals?.total_price),
+        value: formatMoney(totals?.total_price, currency),
         className: 'text-gray-900 dark:text-white',
       },
       {
         label: 'Gain/Loss',
-        value: formatVND(totals?.gain_loss_value),
+        value: formatMoney(totals?.gain_loss_value, currency),
         className:
           toNumber(totals?.gain_loss_value) >= 0
             ? 'text-sky-600 dark:text-sky-400'
@@ -162,7 +155,7 @@ export default function StockPortfoliosPage() {
             : 'text-red-600 dark:text-red-400',
       },
     ],
-    [totals]
+    [currency, totals]
   );
 
   const openCreateModal = () => {
@@ -529,21 +522,21 @@ export default function StockPortfoliosPage() {
                         {formatNumber(portfolio.shares_number)}
                       </td>
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
-                        {formatVND(portfolio.cost_price_per_share)}
+                        {formatMoney(portfolio.cost_price_per_share, currency)}
                       </td>
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
-                        {formatVND(portfolio.price_per_share)}
+                        {formatMoney(portfolio.price_per_share, currency)}
                       </td>
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
-                        {formatVND(portfolio.total_cost_price)}
+                        {formatMoney(portfolio.total_cost_price, currency)}
                       </td>
                       <td className="py-3 px-2 text-gray-900 dark:text-white">
-                        {formatVND(portfolio.total_price)}
+                        {formatMoney(portfolio.total_price, currency)}
                       </td>
                       <td
                         className={`py-3 px-2 font-medium ${getStatusTextClass(portfolio.status)}`}
                       >
-                        {formatVND(portfolio.gain_loss_value)}
+                        {formatMoney(portfolio.gain_loss_value, currency)}
                       </td>
                       <td
                         className={`py-3 px-2 font-medium ${getStatusTextClass(portfolio.status)}`}
@@ -587,10 +580,10 @@ export default function StockPortfoliosPage() {
                     <td className="py-3 px-2" />
                     <td className="py-3 px-2" />
                     <td className="py-3 px-2 text-gray-900 dark:text-white">
-                      {formatVND(totals?.total_cost_price)}
+                      {formatMoney(totals?.total_cost_price, currency)}
                     </td>
                     <td className="py-3 px-2 text-gray-900 dark:text-white">
-                      {formatVND(totals?.total_price)}
+                      {formatMoney(totals?.total_price, currency)}
                     </td>
                     <td
                       className={`py-3 px-2 ${
@@ -599,7 +592,7 @@ export default function StockPortfoliosPage() {
                           : 'text-red-600 dark:text-red-400'
                       }`}
                     >
-                      {formatVND(totals?.gain_loss_value)}
+                      {formatMoney(totals?.gain_loss_value, currency)}
                     </td>
                     <td
                       className={`py-3 px-2 ${

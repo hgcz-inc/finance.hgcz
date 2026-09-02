@@ -13,6 +13,8 @@ import {
   Filler,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -46,6 +48,7 @@ interface GroupedData {
 }
 
 export default function CashflowChart({ reports }: NavChartProps) {
+  const { currency } = useCurrency();
   const [timeRange, setTimeRange] = useState<TimeRange>('year');
 
   // Filter and group data based on time range
@@ -212,12 +215,7 @@ export default function CashflowChart({ reports }: NavChartProps) {
   }, [reports, timeRange]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(value);
+    return formatCompactMoney(value, currency);
   };
 
   // Color palette for different lines

@@ -13,6 +13,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -46,6 +48,7 @@ interface GroupedData {
 }
 
 export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
+  const { currency } = useCurrency();
   const [timeRange, setTimeRange] = useState<TimeRange>('year');
 
   // Filter and group data based on time range
@@ -202,12 +205,7 @@ export default function AssetsEquityChart({ reports }: AssetsEquityChartProps) {
   }, [reports, timeRange]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(value);
+    return formatCompactMoney(value, currency);
   };
 
   const formatPercentage = (value: number) => {

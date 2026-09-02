@@ -11,6 +11,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -59,6 +61,7 @@ const categoryNames: { [key: number]: string } = {
 };
 
 export default function IncomeByCategoryChart() {
+  const { currency } = useCurrency();
   const [transactions, setTransactions] = useState<IncomeTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -146,9 +149,7 @@ export default function IncomeByCategoryChart() {
   }, [transactions]);
 
   const formatCurrency = (value: number) => {
-    // Format in triệu đ (millions)
-    const millions = value / 1_000_000;
-    return `${millions.toFixed(1)} triệu đ`;
+    return formatCompactMoney(value, currency);
   };
 
   const data = {
@@ -218,7 +219,7 @@ export default function IncomeByCategoryChart() {
         },
         title: {
           display: true,
-          text: 'Income (triệu đ)',
+          text: `Income (${currency})`,
           color: '#6B7280',
           font: {
             size: 12,

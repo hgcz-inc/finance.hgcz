@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (exchangeRate <= 0) {
+    if (user.currency === 'VND' && exchangeRate <= 0) {
       return NextResponse.json(
         { error: 'Exchange Rate phải lớn hơn 0.' },
         { status: 400 }
@@ -270,8 +270,9 @@ export async function POST(request: NextRequest) {
       }
 
       const amountMultiplier = accountValue === 'joint' ? 0.5 : 1;
+      const currencyMultiplier = user.currency === 'VND' ? exchangeRate : 1;
       importRows.push({
-        amount: Math.abs(amountNzd) * exchangeRate * amountMultiplier,
+        amount: Math.abs(amountNzd) * currencyMultiplier * amountMultiplier,
         categorizableId,
         transactionDate,
         note: buildNote(accountValue, details, code, amountText),

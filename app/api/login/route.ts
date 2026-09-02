@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         login_id: user.login_id,
+        currency: Number(user.currency) === 1 ? 'NZD' : 'VND',
       },
     });
     setSessionCookie(response, Number(user.id));

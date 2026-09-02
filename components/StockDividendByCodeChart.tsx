@@ -11,6 +11,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -36,6 +38,7 @@ interface StockDividend {
 }
 
 export default function StockDividendByCodeChart() {
+  const { currency } = useCurrency();
   const [dividends, setDividends] = useState<StockDividend[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,18 +93,11 @@ export default function StockDividendByCodeChart() {
   }, [dividends]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      notation: 'compact',
-      maximumFractionDigits: 1,
-    }).format(value);
+    return formatCompactMoney(value, currency);
   };
 
   const formatCurrencyFull = (value: number) => {
-    // Format in triệu đ (millions)
-    const millions = value / 1_000_000;
-    return `${millions.toFixed(1)} triệu đ`;
+    return formatCompactMoney(value, currency);
   };
 
   const data = {

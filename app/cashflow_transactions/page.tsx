@@ -11,6 +11,8 @@ import {
   Tooltip,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { useCurrency } from '@/components/CurrencyProvider';
+import { formatCompactMoney, formatMoney } from '@/lib/currency';
 
 ChartJS.register(
   CategoryScale,
@@ -85,19 +87,6 @@ const incomeCategoryNames: Record<number, string> = {
   8: 'Other Income',
   9: 'Side Project',
 };
-
-function formatVND(value: number): string {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'decimal',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value) + ' ₫';
-}
-
-function formatTriệu(value: number): string {
-  const millions = value / 1_000_000;
-  return `${millions.toFixed(0)} triệu đ`;
-}
 
 function parsePositiveNumber(value: string): number {
   const parsed = Number(value);
@@ -192,6 +181,7 @@ function importAccountLabel(account: ImportAccountOption): string {
 
 export default function CashflowTransactionsPage() {
   const router = useRouter();
+  const { currency } = useCurrency();
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth() + 1);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -468,7 +458,22 @@ export default function CashflowTransactionsPage() {
   ) => {
     setFormTransactionAccount(value);
 
-    if (formCurrency === 'NZD') {
+    if (currency === 'NZD') {
+      const amount = Number(formAmount);
+      if (Number.isFinite(amount) && amount > 0) {
+        if (
+          value === 'Joint' &&
+          formTransactionAccount === 'Individual'
+        ) {
+          setFormAmount(formatCalculatedAmount(amount / 2));
+        } else if (
+          value === 'Individual' &&
+          formTransactionAccount === 'Joint'
+        ) {
+          setFormAmount(formatCalculatedAmount(amount * 2));
+        }
+      }
+    } else if (formCurrency === 'NZD') {
       setFormAmount(
         calculateNzdToVndAmount(formNzdAmount, formExchangeRate, value)
       );
@@ -609,7 +614,7 @@ export default function CashflowTransactionsPage() {
         tooltip: {
           callbacks: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            label: (ctx: any) => formatVND(Number(ctx.raw ?? 0)),
+            label: (ctx: any) => formatMoney(Number(ctx.raw ?? 0), currency),
           },
         },
       },
@@ -617,13 +622,13 @@ export default function CashflowTransactionsPage() {
         x: {
           beginAtZero: true,
           ticks: {
-            callback: (v: unknown) => formatTriệu(Number(v)),
+            callback: (v: unknown) => formatCompactMoney(Number(v), currency),
           },
         },
         y: { grid: { display: false } },
       },
     }),
-    []
+    [currency]
   );
 
   const chartOptionsInflow = useMemo(
@@ -636,7 +641,7 @@ export default function CashflowTransactionsPage() {
         tooltip: {
           callbacks: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            label: (ctx: any) => formatVND(Number(ctx.raw ?? 0)),
+            label: (ctx: any) => formatMoney(Number(ctx.raw ?? 0), currency),
           },
         },
       },
@@ -644,13 +649,13 @@ export default function CashflowTransactionsPage() {
         y: {
           beginAtZero: true,
           ticks: {
-            callback: (v: unknown) => formatTriệu(Number(v)),
+            callback: (v: unknown) => formatCompactMoney(Number(v), currency),
           },
         },
         x: { grid: { display: false } },
       },
     }),
-    []
+    [currency]
   );
 
   if (loading && !summary) {
@@ -684,18 +689,20 @@ export default function CashflowTransactionsPage() {
               <span className="font-semibold">
                 Max Spending Limit per Year:
               </span>{' '}
-              {formatVND(spendingLimit.maxSpendingLimitPerYearVnd)}
+              {formatMoney(spendingLimit.maxSpendingLimitPerYearVnd, currency)}
             </div>
 
             {annualOverspending > 0 ? (
               <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-300">
                 Cảnh báo: Bạn đã chi tiêu vượt ngân sách năm{' '}
-                <strong>{formatVND(annualOverspending)}</strong>.
+                <strong>{formatMoney(annualOverspending, currency)}</strong>.
               </div>
             ) : (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
                 Spending còn lại của năm:{' '}
-                <strong>{formatVND(spendingLimit.remainingYearSpending)}</strong>.
+                <strong>
+                  {formatMoney(spendingLimit.remainingYearSpending, currency)}
+                </strong>.
               </div>
             )}
           </div>
@@ -711,19 +718,19 @@ export default function CashflowTransactionsPage() {
               <div>
                 <span className="text-gray-600 dark:text-gray-400">Inflow: </span>
                 <span className="text-blue-600 dark:text-blue-400 font-semibold">
-                  {summary ? formatVND(summary.inflow) : '0 ₫'}
+                  {formatMoney(summary?.inflow, currency)}
                 </span>
               </div>
               <div>
                 <span className="text-gray-600 dark:text-gray-400">Outflow: </span>
                 <span className="text-red-600 dark:text-red-400 font-semibold">
-                  {summary ? formatVND(summary.outflow) : '0 ₫'}
+                  {formatMoney(summary?.outflow, currency)}
                 </span>
               </div>
               <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
                 <span className="text-gray-600 dark:text-gray-400">Net: </span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {summary ? formatVND(summary.netBalance) : '0 ₫'}
+                  {formatMoney(summary?.netBalance, currency)}
                 </span>
               </div>
             </div>
@@ -887,7 +894,9 @@ export default function CashflowTransactionsPage() {
                               : 'text-red-600 dark:text-red-400 font-medium'
                           }
                         >
-                          {t.amount != null ? formatVND(t.amount) : '-'}
+                          {t.amount != null
+                            ? formatMoney(t.amount, currency)
+                            : '-'}
                         </span>
                       </td>
                       <td className="py-3 px-2 text-gray-600 dark:text-gray-400">
@@ -917,7 +926,7 @@ export default function CashflowTransactionsPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Amount
+                    Amount ({currency})
                   </label>
                   <input
                     type="number"
@@ -980,66 +989,70 @@ export default function CashflowTransactionsPage() {
                 </div>
                 {modalOpen === 'outflow' && (
                   <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Currency
-                      </label>
-                      <div
-                        className="flex"
-                        role="group"
-                        aria-label="Currency"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleCurrencyChange('NZD')}
-                          className={segmentedButtonClass(formCurrency === 'NZD')}
-                          aria-pressed={formCurrency === 'NZD'}
-                        >
-                          NZD
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCurrencyChange('VND')}
-                          className={segmentedButtonClass(formCurrency === 'VND')}
-                          aria-pressed={formCurrency === 'VND'}
-                        >
-                          VND
-                        </button>
-                      </div>
-                    </div>
-                    {formCurrency === 'NZD' && (
+                    {currency === 'VND' && (
                       <>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Exchange Rate
+                            Input Currency
                           </label>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={formExchangeRate}
-                            onChange={(e) =>
-                              handleExchangeRateChange(e.target.value)
-                            }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            placeholder="15.000"
-                          />
+                          <div
+                            className="flex"
+                            role="group"
+                            aria-label="Input Currency"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleCurrencyChange('NZD')}
+                              className={segmentedButtonClass(formCurrency === 'NZD')}
+                              aria-pressed={formCurrency === 'NZD'}
+                            >
+                              NZD
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCurrencyChange('VND')}
+                              className={segmentedButtonClass(formCurrency === 'VND')}
+                              aria-pressed={formCurrency === 'VND'}
+                            >
+                              VND
+                            </button>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Amount for NZD
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={formNzdAmount}
-                            onChange={(e) =>
-                              handleNzdAmountChange(e.target.value)
-                            }
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            placeholder="0"
-                          />
-                        </div>
+                        {formCurrency === 'NZD' && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Exchange Rate
+                              </label>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={formExchangeRate}
+                                onChange={(e) =>
+                                  handleExchangeRateChange(e.target.value)
+                                }
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                placeholder="15.000"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Amount for NZD
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={formNzdAmount}
+                                onChange={(e) =>
+                                  handleNzdAmountChange(e.target.value)
+                                }
+                                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                placeholder="0"
+                              />
+                            </div>
+                          </>
+                        )}
                       </>
                     )}
                     <div>
@@ -1135,7 +1148,7 @@ export default function CashflowTransactionsPage() {
                 <code className="font-mono break-all">{CSV_IMPORT_FORMAT}</code>
               </div>
 
-              <div className="mt-4">
+              {currency === 'VND' && <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Exchange Rate
                 </label>
@@ -1147,7 +1160,7 @@ export default function CashflowTransactionsPage() {
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   placeholder="15.000"
                 />
-              </div>
+              </div>}
 
               <label
                 className={
