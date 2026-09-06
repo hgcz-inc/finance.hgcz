@@ -1,7 +1,20 @@
 export type Currency = 'VND' | 'NZD';
+export const CURRENCY_STORAGE_KEY = 'currency';
 
 export function normalizeCurrency(value: unknown): Currency {
-  return value === 'NZD' ? 'NZD' : 'VND';
+  if (
+    value === 1 ||
+    value === '1' ||
+    (typeof value === 'string' && value.toUpperCase() === 'NZD')
+  ) {
+    return 'NZD';
+  }
+
+  return 'VND';
+}
+
+export function currencyToDb(value: Currency): number {
+  return value === 'NZD' ? 1 : 0;
 }
 
 function localeFor(currency: Currency): string {
@@ -15,7 +28,7 @@ export function formatMoney(
   return new Intl.NumberFormat(localeFor(currency), {
     style: 'currency',
     currency,
-    minimumFractionDigits: currency === 'NZD' ? 2 : 0,
+    minimumFractionDigits: 0,
     maximumFractionDigits: currency === 'NZD' ? 2 : 0,
   }).format(Number(value ?? 0));
 }

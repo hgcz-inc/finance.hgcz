@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/components/CurrencyProvider';
-import { Currency, formatMoney } from '@/lib/currency';
+import { Currency, formatMoney, normalizeCurrency } from '@/lib/currency';
 
 export default function ConfigurationPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function ConfigurationPage() {
       const data = await response.json();
 
       if (data.success) {
-        setSelectedCurrency(data.config?.currency === 'NZD' ? 'NZD' : 'VND');
+        setSelectedCurrency(normalizeCurrency(data.config?.currency));
         setMaxSpendingLimit(
           String(data.config?.maxSpendingLimitPerYearVnd ?? 0)
         );
@@ -81,8 +81,7 @@ export default function ConfigurationPage() {
         setShowMaxSpendingLimit(
           data.config?.showMaxSpendingLimitPerYear === true
         );
-        const savedCurrency: Currency =
-          data.config?.currency === 'NZD' ? 'NZD' : 'VND';
+        const savedCurrency: Currency = normalizeCurrency(data.config?.currency);
         setSelectedCurrency(savedCurrency);
         setCurrency(savedCurrency);
         setSuccessMessage('Đã lưu config.');

@@ -2,9 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useCurrency } from '@/components/CurrencyProvider';
+import {
+  CURRENCY_STORAGE_KEY,
+  Currency,
+  normalizeCurrency,
+} from '@/lib/currency';
+
+function storeUserSession(user: unknown): Currency {
+  const currency = normalizeCurrency(
+    (user as { currency?: unknown } | null)?.currency
+  );
+
+  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
+
+  return currency;
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setCurrency } = useCurrency();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,16 +33,18 @@ export default function LoginPage() {
       const response = await fetch('/api/session');
       if (!response.ok) {
         localStorage.removeItem('user');
+        localStorage.removeItem(CURRENCY_STORAGE_KEY);
+        setCurrency('VND');
         return;
       }
 
       const data = await response.json();
-      localStorage.setItem('user', JSON.stringify(data.user));
+      setCurrency(storeUserSession(data.user));
       router.push('/');
     };
 
     checkSession();
-  }, [router]);
+  }, [router, setCurrency]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +72,7 @@ export default function LoginPage() {
       }
 
       // Login successful
-      localStorage.setItem('user', JSON.stringify(data.user));
+      setCurrency(storeUserSession(data.user));
 
       router.push('/');
     } catch {

@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { Currency } from '@/lib/currency';
+import { Currency, normalizeCurrency } from '@/lib/currency';
 
 export const SESSION_COOKIE_NAME = 'hfinance_session';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -71,7 +71,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   return {
     id: Number(user.id),
     loginId: String(user.login_id),
-    currency: Number(user.currency) === 1 ? 'NZD' : 'VND',
+    currency: normalizeCurrency(user.currency),
   };
 }
 
