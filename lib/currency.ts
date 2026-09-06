@@ -28,7 +28,7 @@ export function formatMoney(
   return new Intl.NumberFormat(localeFor(currency), {
     style: 'currency',
     currency,
-    minimumFractionDigits: currency === 'NZD' ? 2 : 0,
+    minimumFractionDigits: 0,
     maximumFractionDigits: currency === 'NZD' ? 2 : 0,
   }).format(Number(value ?? 0));
 }

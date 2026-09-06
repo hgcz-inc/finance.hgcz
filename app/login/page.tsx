@@ -2,18 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CURRENCY_STORAGE_KEY, normalizeCurrency } from '@/lib/currency';
+import { useCurrency } from '@/components/CurrencyProvider';
+import {
+  CURRENCY_STORAGE_KEY,
+  Currency,
+  normalizeCurrency,
+} from '@/lib/currency';
 
-function storeUserSession(user: unknown) {
-  localStorage.setItem('user', JSON.stringify(user));
-  localStorage.setItem(
-    CURRENCY_STORAGE_KEY,
-    normalizeCurrency((user as { currency?: unknown } | null)?.currency)
+function storeUserSession(user: unknown): Currency {
+  const currency = normalizeCurrency(
+    (user as { currency?: unknown } | null)?.currency
   );
+
+  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem(CURRENCY_STORAGE_KEY, currency);
+
+  return currency;
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setCurrency } = useCurrency();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -25,16 +34,17 @@ export default function LoginPage() {
       if (!response.ok) {
         localStorage.removeItem('user');
         localStorage.removeItem(CURRENCY_STORAGE_KEY);
+        setCurrency('VND');
         return;
       }
 
       const data = await response.json();
-      storeUserSession(data.user);
+      setCurrency(storeUserSession(data.user));
       router.push('/');
     };
 
     checkSession();
-  }, [router]);
+  }, [router, setCurrency]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +72,7 @@ export default function LoginPage() {
       }
 
       // Login successful
-      storeUserSession(data.user);
+      setCurrency(storeUserSession(data.user));
 
       router.push('/');
     } catch {
