@@ -1,7 +1,19 @@
 export type Currency = 'VND' | 'NZD';
 
 export function normalizeCurrency(value: unknown): Currency {
-  return value === 'NZD' ? 'NZD' : 'VND';
+  if (
+    value === 1 ||
+    value === '1' ||
+    (typeof value === 'string' && value.toUpperCase() === 'NZD')
+  ) {
+    return 'NZD';
+  }
+
+  return 'VND';
+}
+
+export function currencyToDb(value: Currency): number {
+  return value === 'NZD' ? 1 : 0;
 }
 
 function localeFor(currency: Currency): string {

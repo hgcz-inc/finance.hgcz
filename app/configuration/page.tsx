@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCurrency } from '@/components/CurrencyProvider';
-import { Currency, formatMoney } from '@/lib/currency';
+import { Currency, formatMoney, normalizeCurrency } from '@/lib/currency';
 
 export default function ConfigurationPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function ConfigurationPage() {
       const data = await response.json();
 
       if (data.success) {
-        setSelectedCurrency(data.config?.currency === 'NZD' ? 'NZD' : 'VND');
+        setSelectedCurrency(normalizeCurrency(data.config?.currency));
         setMaxSpendingLimit(
           String(data.config?.maxSpendingLimitPerYearVnd ?? 0)
         );
@@ -81,8 +81,7 @@ export default function ConfigurationPage() {
         setShowMaxSpendingLimit(
           data.config?.showMaxSpendingLimitPerYear === true
         );
-        const savedCurrency: Currency =
-          data.config?.currency === 'NZD' ? 'NZD' : 'VND';
+        const savedCurrency: Currency = normalizeCurrency(data.config?.currency);
         setSelectedCurrency(savedCurrency);
         setCurrency(savedCurrency);
         setSuccessMessage('Đã lưu config.');
@@ -166,7 +165,7 @@ export default function ConfigurationPage() {
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Max Spending Limit per Year ({selectedCurrency})
+              Max Spending Limit per Year (VND)
             </span>
             <input
               type="number"
@@ -183,7 +182,7 @@ export default function ConfigurationPage() {
           {showMaxSpendingLimit && (
             <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               Monthly limit preview:{' '}
-              <strong>{formatMoney(monthlyLimit, selectedCurrency)}</strong>
+              <strong>{formatMoney(monthlyLimit, 'VND')}</strong>
             </div>
           )}
 

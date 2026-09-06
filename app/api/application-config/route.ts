@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getCurrentUser, unauthorizedResponse } from '@/lib/auth';
+import { currencyToDb, normalizeCurrency } from '@/lib/currency';
 
 function normalizeLimit(value: unknown): number {
   const parsed = Number(value);
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
         maxSpendingLimitPerYearVnd,
         user.id,
         showMaxSpendingLimitPerYear,
-        currency === 'NZD' ? 1 : 0,
+        currencyToDb(currency),
       ]
     );
     const row = result.rows[0];
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       config: {
-        currency: Number(row?.currency) === 1 ? 'NZD' : 'VND',
+        currency: normalizeCurrency(row?.currency),
         maxSpendingLimitPerYearVnd: normalizeLimit(
           row?.max_spending_limit_per_year_vnd
         ),

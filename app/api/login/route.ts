@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { setSessionCookie } from '@/lib/auth';
+import { normalizeCurrency } from '@/lib/currency';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         login_id: user.login_id,
-        currency: Number(user.currency) === 1 ? 'NZD' : 'VND',
+        currency: normalizeCurrency(user.currency),
       },
     });
     setSessionCookie(response, Number(user.id));

@@ -112,6 +112,31 @@ function formatCalculatedAmount(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
+function adjustAmountForAccountChange(
+  amountText: string,
+  nextAccount: TransactionAccountOption,
+  previousAccount: TransactionAccountOption
+): string {
+  const amount = Number(amountText);
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    nextAccount === previousAccount
+  ) {
+    return amountText;
+  }
+
+  if (nextAccount === 'Joint' && previousAccount === 'Individual') {
+    return formatCalculatedAmount(amount / 2);
+  }
+
+  if (nextAccount === 'Individual' && previousAccount === 'Joint') {
+    return formatCalculatedAmount(amount * 2);
+  }
+
+  return amountText;
+}
+
 function stripOutflowNoteHelpers(note: string): string {
   return note
     .replace(/^(Individual|Joint)\s*\|\s*/i, '')
@@ -458,30 +483,14 @@ export default function CashflowTransactionsPage() {
   ) => {
     setFormTransactionAccount(value);
 
-    if (currency === 'NZD') {
-      const amount = Number(formAmount);
-      if (Number.isFinite(amount) && amount > 0) {
-        if (
-          value === 'Joint' &&
-          formTransactionAccount === 'Individual'
-        ) {
-          setFormAmount(formatCalculatedAmount(amount / 2));
-        } else if (
-          value === 'Individual' &&
-          formTransactionAccount === 'Joint'
-        ) {
-          setFormAmount(formatCalculatedAmount(amount * 2));
-        }
-      }
-    } else if (formCurrency === 'NZD') {
+    if (currency === 'VND' && formCurrency === 'NZD') {
       setFormAmount(
         calculateNzdToVndAmount(formNzdAmount, formExchangeRate, value)
       );
-    } else if (value === 'Joint') {
-      const amount = Number(formAmount);
-      if (Number.isFinite(amount) && amount > 0) {
-        setFormAmount(formatCalculatedAmount(amount / 2));
-      }
+    } else {
+      setFormAmount(
+        adjustAmountForAccountChange(formAmount, value, formTransactionAccount)
+      );
     }
 
     setFormNote((note) =>
