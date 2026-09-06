@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { CURRENCY_STORAGE_KEY, normalizeCurrency } from '@/lib/currency';
+
+function storeUserSession(user: unknown) {
+  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem(
+    CURRENCY_STORAGE_KEY,
+    normalizeCurrency((user as { currency?: unknown } | null)?.currency)
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,11 +24,12 @@ export default function LoginPage() {
       const response = await fetch('/api/session');
       if (!response.ok) {
         localStorage.removeItem('user');
+        localStorage.removeItem(CURRENCY_STORAGE_KEY);
         return;
       }
 
       const data = await response.json();
-      localStorage.setItem('user', JSON.stringify(data.user));
+      storeUserSession(data.user);
       router.push('/');
     };
 
@@ -52,7 +62,7 @@ export default function LoginPage() {
       }
 
       // Login successful
-      localStorage.setItem('user', JSON.stringify(data.user));
+      storeUserSession(data.user);
 
       router.push('/');
     } catch {

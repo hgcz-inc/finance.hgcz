@@ -165,7 +165,7 @@ export default function ConfigurationPage() {
 
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Max Spending Limit per Year (VND)
+              Max Spending Limit per Year ({selectedCurrency})
             </span>
             <input
               type="number"
@@ -182,7 +182,7 @@ export default function ConfigurationPage() {
           {showMaxSpendingLimit && (
             <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               Monthly limit preview:{' '}
-              <strong>{formatMoney(monthlyLimit, 'VND')}</strong>
+              <strong>{formatMoney(monthlyLimit, selectedCurrency)}</strong>
             </div>
           )}
 

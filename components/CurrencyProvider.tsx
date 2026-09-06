@@ -8,7 +8,11 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { Currency, normalizeCurrency } from '@/lib/currency';
+import {
+  CURRENCY_STORAGE_KEY,
+  Currency,
+  normalizeCurrency,
+} from '@/lib/currency';
 
 interface CurrencyContextValue {
   currency: Currency;
@@ -16,7 +20,6 @@ interface CurrencyContextValue {
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
-const CURRENCY_STORAGE_KEY = 'currency';
 
 function readStoredCurrency(): Currency | null {
   if (typeof window === 'undefined') {
@@ -66,7 +69,9 @@ function writeStoredCurrency(currency: Currency): void {
 export default function CurrencyProvider({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [currency, setCurrencyState] = useState<Currency>('VND');
+  const [currency, setCurrencyState] = useState<Currency>(
+    () => readStoredCurrency() ?? 'VND'
+  );
   const setCurrency = useCallback((value: Currency) => {
     const nextCurrency = normalizeCurrency(value);
     setCurrencyState(nextCurrency);

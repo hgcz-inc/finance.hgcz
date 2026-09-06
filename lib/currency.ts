@@ -1,4 +1,5 @@
 export type Currency = 'VND' | 'NZD';
+export const CURRENCY_STORAGE_KEY = 'currency';
 
 export function normalizeCurrency(value: unknown): Currency {
   if (

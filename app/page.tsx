@@ -13,6 +13,7 @@ import ExpenseByCategoryChart from '@/components/ExpenseByCategoryChart';
 import IncomeByCategoryChart from '@/components/IncomeByCategoryChart';
 import FinancialIndicators from '@/components/FinancialIndicators';
 import { useCurrency } from '@/components/CurrencyProvider';
+import { CURRENCY_STORAGE_KEY } from '@/lib/currency';
 
 interface MonthlyReport {
   id: number;
@@ -97,6 +98,7 @@ export default function Home() {
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     localStorage.removeItem('user');
+    localStorage.removeItem(CURRENCY_STORAGE_KEY);
     router.push('/login');
   };
 
